@@ -10,7 +10,7 @@ bool UWorldExecHook(__int64 a1, __int64 a2, const wchar_t* cmd, __int64 a4)
     if (wcscmp(cmd, L"givemecheats") == 0)
     {
         auto PlayerController = Utils::GetLocalPlayerController();
-        PlayerController->CheatManager = Utils::SpawnObject<UCheatManager>(PlayerController);
+        PlayerController->CheatManager = Utils::SpawnObject<UFortCheatManager>(PlayerController);
         return true;
     }
 
@@ -30,11 +30,11 @@ DWORD MainThread(HMODULE Module)
         MH_Initialize();
         Hook::Function(InSDKUtils::GetImageBase() + 0x15FAF64, UWorldExecHook, &UWorldExecOriginal);
 
+        while (!(GetAsyncKeyState(VK_F5) & 0x8000)) Sleep(100);
+
+        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open 127.0.0.1", nullptr);
+
         /*
-        while (!(GetAsyncKeyState(VK_PRIOR) & 1)) Sleep(100);
-
-        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"givemecheats", nullptr);
-
         while (!(GetAsyncKeyState(VK_PRIOR) & 1)) Sleep(100);
 
         auto PlayerController = UWorld::GetWorld()->OwningGameInstance->LocalPlayers[0]->PlayerController;
