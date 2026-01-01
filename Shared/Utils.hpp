@@ -48,4 +48,10 @@ namespace Utils
     {
         return UFortKismetLibrary::GetNumActorsOfClass(UWorld::GetWorld(), T::StaticClass());
     }
+
+    template <typename T>
+    void** GetVTable()
+    {
+        return (void**)T::GetDefaultObj()->VTable;
+    }
 }

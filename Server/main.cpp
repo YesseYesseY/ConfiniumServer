@@ -68,24 +68,24 @@ namespace Abilities
     }
 }
 
-__int64 (*TickFlushOriginal)(UNetDriver* NetDriver);
-__int64 TickFlushHook(UNetDriver* NetDriver)
+int64 (*TickFlushOriginal)(UNetDriver* NetDriver);
+int64 TickFlushHook(UNetDriver* NetDriver)
 {
     if (NetDriver->ReplicationDriver)
     {
-        static __int64 (*ServerReplicateActors)(UReplicationDriver*) = decltype(ServerReplicateActors)(InSDKUtils::GetImageBase() + 0x55AA9E0);
+        static int64 (*ServerReplicateActors)(UReplicationDriver*) = decltype(ServerReplicateActors)(InSDKUtils::GetImageBase() + 0x55AA9E0);
         ServerReplicateActors(NetDriver->ReplicationDriver);
     }
 
     return TickFlushOriginal(NetDriver);
 }
 
-bool KickPlayerHook(__int64 a1, __int64 a2, __int64 a3)
+bool KickPlayerHook(int64 a1, int64 a2, int64 a3)
 {
     return false;
 }
 
-__int64 GetNetModeHook(__int64 a1)
+int64 GetNetModeHook(int64 a1)
 {
     return 1;
 }
@@ -148,23 +148,16 @@ bool ReadyToStartMatchHook(AFortGameModeAthena* GameMode)
 
 APawn* SpawnDefaultPawnForHook(AFortGameModeAthena* GameMode, AController* NewPlayer, AActor* StartSpot)
 {
-    return GameMode->SpawnDefaultPawnAtTransform(NewPlayer, StartSpot->GetTransform());
-}
-
-void ServerAcknowledgePossessionHook(AFortPlayerControllerAthena* PC, APawn* P)
-{
-    PC->AcknowledgedPawn = P;
-    auto PlayerState = (AFortPlayerStateAthena*)PC->PlayerState;
-    
+    auto PlayerState = (AFortPlayerStateAthena*)NewPlayer->PlayerState;
     PlayerState->AbilitySystemComponent->RemoveActiveGameplayEffectBySourceEffect(UGE_OutsideSafeZoneDamage_C::StaticClass(), nullptr, 1);
-    if (PlayerState->AbilitySystemComponent->ActivatableAbilities.Items.Num() < 5)
+
+    auto GAS_AthenaPlayer = UObject::FindObject<UFortAbilitySet>("FortAbilitySet GAS_AthenaPlayer.GAS_AthenaPlayer");
+    for (int i = 0; i < GAS_AthenaPlayer->GameplayAbilities.Num(); i++)
     {
-        auto GAS_AthenaPlayer = UObject::FindObject<UFortAbilitySet>("FortAbilitySet GAS_AthenaPlayer.GAS_AthenaPlayer");
-        for (int i = 0; i < GAS_AthenaPlayer->GameplayAbilities.Num(); i++)
-        {
-            Abilities::GiveAbility(PlayerState->AbilitySystemComponent, GAS_AthenaPlayer->GameplayAbilities[i]);
-        }
+        Abilities::GiveAbility(PlayerState->AbilitySystemComponent, GAS_AthenaPlayer->GameplayAbilities[i]);
     }
+
+    return GameMode->SpawnDefaultPawnAtTransform(NewPlayer, StartSpot->GetTransform());
 }
 
 void ServerCheatHook(AFortPlayerControllerAthena* PlayerController, const FString& Msg)
@@ -199,45 +192,51 @@ void ServerAttemptAircraftJumpHook(UFortControllerComponent_Aircraft* Component,
 
 }
 
+void ReturnHook()
+{
+    return;
+}
+
 DWORD MainThread(HMODULE Module)
 {
-        AllocConsole();
-        FILE* Dummy;
-        freopen_s(&Dummy, "CONOUT$", "w", stdout);
-        freopen_s(&Dummy, "CONIN$", "r", stdin);
+    AllocConsole();
+    FILE* Dummy;
+    freopen_s(&Dummy, "CONOUT$", "w", stdout);
+    freopen_s(&Dummy, "CONIN$", "r", stdin);
 
-        MH_Initialize();
-        
-        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"log LogFortUIDirector None", nullptr);
+    MH_Initialize();
+    
+    UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"log LogFortUIDirector None", nullptr);
+    UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"log LogFort VeryVerbose", nullptr);
 
-        Hook::Function(InSDKUtils::GetImageBase() + 0xC440A0, TickFlushHook, &TickFlushOriginal);
-        Hook::Function(InSDKUtils::GetImageBase() + 0x7B69280, KickPlayerHook);
-        Hook::Function(InSDKUtils::GetImageBase() + 0xD141FC, GetNetModeHook);
+    Hook::Function(InSDKUtils::GetImageBase() + 0xC440A0, TickFlushHook, &TickFlushOriginal);
+    Hook::Function(InSDKUtils::GetImageBase() + 0x7B69280, KickPlayerHook);
+    Hook::Function(InSDKUtils::GetImageBase() + 0xD141FC, GetNetModeHook);
+    Hook::Function(InSDKUtils::GetImageBase() + 0x15F7BDC, ReturnHook);
 
-        *(bool*)(InSDKUtils::GetImageBase() + 0xB6E20FD) = false; // GIsClient
-        *(bool*)(InSDKUtils::GetImageBase() + 0xB6E20FF) = true; // GIsServer
-        UWorld::GetWorld()->OwningGameInstance->LocalPlayers.Remove(0);
-        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open Artemis_Terrain", nullptr);
+    Hook::VTable<AFortGameModeAthena>(2192 / 8, ReadyToStartMatchHook, &ReadyToStartMatchOriginal);
+    Hook::VTable<AFortGameModeAthena>(1720 / 8, SpawnDefaultPawnForHook);
+    Hook::VTable<AFortPlayerControllerAthena>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
+    Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
+    Hook::VTable<UFortAbilitySystemComponentAthena>(2120 / 8, Abilities::InternalServerTryActivateAbility);
+    Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);
 
-        Hook::VTable<AFortGameModeAthena>(2192 / 8, ReadyToStartMatchHook, &ReadyToStartMatchOriginal);
-        Hook::VTable<AFortGameModeAthena>(1720 / 8, SpawnDefaultPawnForHook);
-        Hook::VTable<AFortPlayerControllerAthena>(2312 / 8, ServerAcknowledgePossessionHook);
-        Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
-        Hook::VTable<UFortAbilitySystemComponentAthena>(2120 / 8, Abilities::InternalServerTryActivateAbility);
-        Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);
+    *(bool*)(InSDKUtils::GetImageBase() + 0xB6E20FD) = false; // GIsClient
+    *(bool*)(InSDKUtils::GetImageBase() + 0xB6E20FF) = true; // GIsServer
+    UWorld::GetWorld()->OwningGameInstance->LocalPlayers.Remove(0);
+    UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open Artemis_Terrain", nullptr);
 
-
-        return 0;
+    return 0;
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved)
 {
-        switch (reason)
-        {
-                case DLL_PROCESS_ATTACH:
-                CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MainThread, hModule, 0, 0);
-                break;
-        }
+    switch (reason)
+    {
+        case DLL_PROCESS_ATTACH:
+        CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MainThread, hModule, 0, 0);
+        break;
+    }
 
-        return TRUE;
+    return TRUE;
 }
