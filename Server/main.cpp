@@ -210,6 +210,7 @@ DWORD MainThread(HMODULE Module)
     Hook::VTable<AFortPlayerControllerAthena>(4760 / 8, Building::ServerBeginEditingBuildingActor);
     Hook::VTable<AFortPlayerControllerAthena>(4744 / 8, Building::ServerEndEditingBuildingActor);
     Hook::VTable<AFortPlayerControllerAthena>(4720 / 8, Building::ServerEditBuildingActor);
+    Hook::VTable<AFortPlayerControllerAthena>(4672 / 8, Building::ServerRepairBuildingActor);
 
     Hook::VTable<UFortAbilitySystemComponentAthena>(2120 / 8, Abilities::InternalServerTryActivateAbility);
     Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);

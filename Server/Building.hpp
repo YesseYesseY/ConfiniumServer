@@ -66,4 +66,10 @@ namespace Building
         
         ReplaceBuildingActor(BuildingActorToEdit, EBuildingReplacementType::BRT_Edited, NewBuildingClass, 0, RotationIterations, bMirrored, PlayerController);
     }
+
+    void ServerRepairBuildingActor(AFortPlayerControllerAthena* PlayerController, ABuildingSMActor* BuildingActorToRepair)
+    {
+        auto Cost = UKismetMathLibrary::FFloor(UKismetMathLibrary::Lerp(7, 0, BuildingActorToRepair->GetHealthPercent()));
+        BuildingActorToRepair->RepairBuilding(PlayerController, Cost); // TODO Remove cost from inventory
+    }
 }
