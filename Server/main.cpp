@@ -1,12 +1,17 @@
 #include <Windows.h>
 #include <iostream>
+#include <print>
+#include <fstream>
 
 #include <Utils.hpp>
 #include <Hook.hpp>
 
 #include <SDK/GE_OutsideSafeZoneDamage_classes.hpp>
 
+#define MessageBox(...) MessageBoxA(NULL, std::format(__VA_ARGS__).c_str(), "ConfiniumServer", MB_OK)
+
 #include "Inventory.hpp"
+#include "Vehicles.hpp"
 
 namespace Abilities
 {
@@ -144,6 +149,14 @@ bool ReadyToStartMatchHook(AFortGameModeAthena* GameMode)
 
 APawn* SpawnDefaultPawnForHook(AFortGameModeAthena* GameMode, AFortPlayerControllerAthena* PlayerController, AActor* StartSpot)
 {
+    static bool InitedStuff = false;
+    if (!InitedStuff)
+    {
+        InitedStuff = true;
+
+        Vehicles::ActivateSpawners();
+    }
+
     auto PlayerState = (AFortPlayerStateAthena*)PlayerController->PlayerState;
     PlayerState->AbilitySystemComponent->RemoveActiveGameplayEffectBySourceEffect(UGE_OutsideSafeZoneDamage_C::StaticClass(), nullptr, 1);
 
@@ -179,6 +192,18 @@ void ServerCheatHook(AFortPlayerControllerAthena* PlayerController, const FStrin
         auto cmd = msg.substr(7);
         UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), cmd.c_str(), nullptr);
     }
+    else if (msg == L"dumpobjects")
+    {
+        std::ofstream outfile("objects.txt");
+        for (int i = 0; i < UObject::GObjects->Num(); i++)
+        {
+            auto Object = UObject::GObjects->GetByIndex(i);
+            if (!Object) continue;
+
+            outfile << Object->GetFullName() << '\n';
+        }
+        outfile.close();
+    }
     else if (msg == L"testthing")
     {
         UFortKismetLibrary::UpdatePlayerCustomCharacterPartsVisualization((AFortPlayerStateAthena*)PlayerController->PlayerState);
@@ -202,7 +227,6 @@ void ServerAttemptAircraftJumpHook(UFortControllerComponent_Aircraft* Component,
         PauseZoneThingy = true;
         UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"pausesafezone", nullptr);
     }
-
 }
 
 void ReturnHook()
@@ -237,6 +261,8 @@ DWORD MainThread(HMODULE Module)
 
     Hook::VTable<UFortAbilitySystemComponentAthena>(2120 / 8, Abilities::InternalServerTryActivateAbility);
     Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);
+
+    Hook::AllVTables<AFortPhysicsPawn>(2056 / 8, Vehicles::ServerMove);
 
     *(bool*)(Utils::Offset(0xB6E20FD)) = false; // GIsClient
     *(bool*)(Utils::Offset(0xB6E20FF)) = true; // GIsServer

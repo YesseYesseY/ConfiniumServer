@@ -42,11 +42,18 @@ namespace Utils
         return UWorld::GetWorld()->OwningGameInstance->LocalPlayers[0]->PlayerController;
     }
 
-    // int32 GetNumActorsOfClass(const class UObject* WorldContextObject, TSubclassOf<class AActor> ActorClass);
     template <typename T>
     int32 GetNumActorsOfClass()
     {
         return UFortKismetLibrary::GetNumActorsOfClass(UWorld::GetWorld(), T::StaticClass());
+    }
+
+    template <typename T>
+    TArray<T*> GetAllActorsOfClass()
+    {
+        TArray<AActor*> ret;
+        UGameplayStatics::GetAllActorsOfClass(UWorld::GetWorld(), T::StaticClass(), &ret);
+        return *(TArray<T*>*)(&ret);
     }
 
     template <typename T>
@@ -90,5 +97,18 @@ namespace Utils
             ret = UKismetSystemLibrary::LoadClassAsset_Blocking(SoftPtr);
 
         return ret;
+    }
+
+    template <typename T>
+    T* FindFirstNonDefaultObject()
+    {
+        for (int i = 0; i < UObject::GObjects->Num(); i++)
+        {
+            auto Object = UObject::GObjects->GetByIndex(i);
+            if (!Object || Object->IsDefaultObject()) continue;
+
+            if (Object->IsA(T::StaticClass()))
+                return (T*)Object;
+        }
     }
 }

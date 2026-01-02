@@ -17,6 +17,13 @@ bool UWorldExecHook(__int64 a1, __int64 a2, const wchar_t* cmd, __int64 a4)
     return UWorldExecOriginal(a1, a2, cmd, a4);
 }
 
+void (*CallServerMoveOriginal)(AFortPhysicsPawn* Pawn, FReplicatedPhysicsPawnState& InState);
+void CallServerMoveHook(AFortPhysicsPawn* Pawn, FReplicatedPhysicsPawnState& InState)
+{
+    InState.Rotation = UKismetMathLibrary::Conv_RotatorToQuaternion(Pawn->K2_GetActorRotation());
+    CallServerMoveOriginal(Pawn, InState);
+}
+
 DWORD MainThread(HMODULE Module)
 {
         AllocConsole();
@@ -28,7 +35,8 @@ DWORD MainThread(HMODULE Module)
         GameViewport->ViewportConsole = Utils::SpawnObject<UConsole>(GameViewport);
 
         MH_Initialize();
-        Hook::Function(InSDKUtils::GetImageBase() + 0x15FAF64, UWorldExecHook, &UWorldExecOriginal);
+        Hook::Function(Utils::Offset(0x15FAF64), UWorldExecHook, &UWorldExecOriginal);
+        Hook::Function(Utils::Offset(0x6DCD138), CallServerMoveHook, &CallServerMoveOriginal);
 
         while (!(GetAsyncKeyState(VK_F5) & 0x8000)) Sleep(100);
 
