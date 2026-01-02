@@ -35,4 +35,35 @@ namespace Building
             Existing.Clear();
         }
     }
+
+    void ServerBeginEditingBuildingActor(AFortPlayerControllerAthena* PlayerController, ABuildingSMActor* BuildingActorToEdit)
+    {
+        BuildingActorToEdit->EditingPlayer = (AFortPlayerStateAthena*)PlayerController->PlayerState;
+        BuildingActorToEdit->OnRep_EditingPlayer();
+
+        static auto EditToolItem = Utils::GetSoftPtr(Utils::GetAssetManager()->GameDataCommon->EditToolItem);
+        for (auto Entry : PlayerController->WorldInventory->Inventory.ReplicatedEntries)
+        {
+            if (Entry.ItemDefinition = EditToolItem)
+            {
+                auto Pawn = (AFortPlayerPawnAthena*)PlayerController->Pawn;
+                Pawn->EquipWeaponDefinition(EditToolItem, Entry.ItemGuid, {}, false);
+                break;
+            }
+        }
+    }
+
+    void ServerEndEditingBuildingActor(AFortPlayerControllerAthena* PlayerController, ABuildingSMActor* BuildingActorToStopEditing)
+    {
+        BuildingActorToStopEditing->EditingPlayer = nullptr;
+        BuildingActorToStopEditing->OnRep_EditingPlayer();
+    }
+
+    void ServerEditBuildingActor(AFortPlayerControllerAthena* PlayerController, ABuildingSMActor* BuildingActorToEdit, TSubclassOf<ABuildingSMActor> NewBuildingClass, uint8 RotationIterations, bool bMirrored)
+    {
+        ABuildingSMActor* (*ReplaceBuildingActor)(ABuildingSMActor*, EBuildingReplacementType, TSubclassOf<ABuildingSMActor>, int, int, bool, AFortPlayerControllerAthena*)
+            = decltype(ReplaceBuildingActor)(Utils::Offset(0x632DAD0));
+        
+        ReplaceBuildingActor(BuildingActorToEdit, EBuildingReplacementType::BRT_Edited, NewBuildingClass, 0, RotationIterations, bMirrored, PlayerController);
+    }
 }

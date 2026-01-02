@@ -112,6 +112,8 @@ APawn* SpawnDefaultPawnForHook(AFortGameModeAthena* GameMode, AFortPlayerControl
     for (int i = 0; i < GAS_AthenaPlayer->GameplayAbilities.Num(); i++)
         Abilities::GiveAbility(PlayerState->AbilitySystemComponent, GAS_AthenaPlayer->GameplayAbilities[i]);
 
+    Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCommon->EditToolItem));
+
     for (int i = 0; i < 5; i++)
         Inventory::GiveItem(PlayerController, (UFortWorldItemDefinition*)GameMode->StartingItems[i].Item, GameMode->StartingItems[i].Count);
 
@@ -205,6 +207,9 @@ DWORD MainThread(HMODULE Module)
     Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
     Hook::VTable<AFortPlayerControllerAthena>(4440 / 8, Inventory::ServerExecuteInventoryItem);
     Hook::VTable<AFortPlayerControllerAthena>(4704 / 8, Building::ServerCreateBuildingActor);
+    Hook::VTable<AFortPlayerControllerAthena>(4760 / 8, Building::ServerBeginEditingBuildingActor);
+    Hook::VTable<AFortPlayerControllerAthena>(4744 / 8, Building::ServerEndEditingBuildingActor);
+    Hook::VTable<AFortPlayerControllerAthena>(4720 / 8, Building::ServerEditBuildingActor);
 
     Hook::VTable<UFortAbilitySystemComponentAthena>(2120 / 8, Abilities::InternalServerTryActivateAbility);
     Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);
