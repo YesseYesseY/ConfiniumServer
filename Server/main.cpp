@@ -6,18 +6,14 @@
 
 #include <SDK/GE_OutsideSafeZoneDamage_classes.hpp>
 
-void MarkArrayDirty(FFastArraySerializer* arr)
-{
-    static void (*InternalMarkArrayDirty)(FFastArraySerializer*) = decltype(InternalMarkArrayDirty)(InSDKUtils::GetImageBase() + 0x1496200);
-    InternalMarkArrayDirty(arr);
-}
+#include "Inventory.hpp"
 
 namespace Abilities
 {
     // I miss K2_GiveAbility from later ue5 :(
     void GiveAbility(UAbilitySystemComponent* Component, UClass* AbilityClass)
     {
-        static FGameplayAbilitySpecHandle (*NativeFunc)(UAbilitySystemComponent* Component, FGameplayAbilitySpecHandle*, FGameplayAbilitySpec& AbilitySpec) = decltype(NativeFunc)(InSDKUtils::GetImageBase() + 0x12A5F48);
+        static FGameplayAbilitySpecHandle (*NativeFunc)(UAbilitySystemComponent* Component, FGameplayAbilitySpecHandle*, FGameplayAbilitySpec& AbilitySpec) = decltype(NativeFunc)(Utils::Offset(0x12A5F48));
 
         FGameplayAbilitySpec spec = { -1, -1, -1, rand(), (UGameplayAbility*)AbilityClass->DefaultObject, 1, -1 };
 
@@ -26,7 +22,7 @@ namespace Abilities
 
     void InternalServerTryActivateAbility(UAbilitySystemComponent* Component, FGameplayAbilitySpecHandle Handle, bool InputPressed, FPredictionKey& PredictionKey, FGameplayEventData* TriggerEventData)
     {
-        static FGameplayAbilitySpec* (*FindAbilitySpecFromHandle)(UAbilitySystemComponent* Component, FGameplayAbilitySpecHandle Handle) = decltype(FindAbilitySpecFromHandle)(InSDKUtils::GetImageBase() + 0x1494C78);
+        static FGameplayAbilitySpec* (*FindAbilitySpecFromHandle)(UAbilitySystemComponent* Component, FGameplayAbilitySpecHandle Handle) = decltype(FindAbilitySpecFromHandle)(Utils::Offset(0x1494C78));
         FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(Component, Handle);
         if (!Spec)
         {
@@ -55,7 +51,7 @@ namespace Abilities
         UGameplayAbility* InstancedAbility = nullptr;
         Spec->InputPressed = true;
 
-        static bool (*InternalTryActivateAbility)(UAbilitySystemComponent*, FGameplayAbilitySpecHandle, FPredictionKey, UGameplayAbility**, void*, FGameplayEventData*) = decltype(InternalTryActivateAbility)(InSDKUtils::GetImageBase() + 0x4EA33E4);
+        static bool (*InternalTryActivateAbility)(UAbilitySystemComponent*, FGameplayAbilitySpecHandle, FPredictionKey, UGameplayAbility**, void*, FGameplayEventData*) = decltype(InternalTryActivateAbility)(Utils::Offset(0x4EA33E4));
         if (InternalTryActivateAbility(Component, Handle, PredictionKey, &InstancedAbility, nullptr, TriggerEventData))
         {
         }
@@ -63,7 +59,7 @@ namespace Abilities
         {
             Component->ClientActivateAbilityFailed(Handle, PredictionKey.Current);
             Spec->InputPressed = false;
-            MarkArrayDirty(&Component->ActivatableAbilities);
+            Utils::MarkArrayDirty(&Component->ActivatableAbilities);
         }
     }
 }
@@ -73,7 +69,7 @@ int64 TickFlushHook(UNetDriver* NetDriver)
 {
     if (NetDriver->ReplicationDriver)
     {
-        static int64 (*ServerReplicateActors)(UReplicationDriver*) = decltype(ServerReplicateActors)(InSDKUtils::GetImageBase() + 0x55AA9E0);
+        static int64 (*ServerReplicateActors)(UReplicationDriver*) = decltype(ServerReplicateActors)(Utils::Offset(0x55AA9E0));
         ServerReplicateActors(NetDriver->ReplicationDriver);
     }
 
@@ -98,10 +94,10 @@ bool ReadyToStartMatchHook(AFortGameModeAthena* GameMode)
     {
         ServerStarted = true;
 
-        bool (*InitHost)(AOnlineBeaconHost*) = decltype(InitHost)(InSDKUtils::GetImageBase() + 0x51E94E4);
-        bool (*PauseBeaconRequests)(AOnlineBeaconHost*, bool) = decltype(PauseBeaconRequests)(InSDKUtils::GetImageBase() + 0x679CA38);
-        bool (*InitListen)(UNetDriver*, void*, FURL&, bool, FString&) = decltype(InitListen)(InSDKUtils::GetImageBase() + (0x51E98A0));
-        void (*SetWorld)(UNetDriver*, UWorld*) = decltype(SetWorld)(InSDKUtils::GetImageBase() + (0xC2BB9C));
+        bool (*InitHost)(AOnlineBeaconHost*) = decltype(InitHost)(Utils::Offset(0x51E94E4));
+        bool (*PauseBeaconRequests)(AOnlineBeaconHost*, bool) = decltype(PauseBeaconRequests)(Utils::Offset(0x679CA38));
+        bool (*InitListen)(UNetDriver*, void*, FURL&, bool, FString&) = decltype(InitListen)(Utils::Offset(0x51E98A0));
+        void (*SetWorld)(UNetDriver*, UWorld*) = decltype(SetWorld)(Utils::Offset(0xC2BB9C));
 
         auto GameState = (AFortGameStateAthena*)GameMode->GameState;
         auto Playlist = UObject::FindObject<UFortPlaylistAthena>("FortPlaylistAthena Playlist_DefaultSolo.Playlist_DefaultSolo");
@@ -146,18 +142,32 @@ bool ReadyToStartMatchHook(AFortGameModeAthena* GameMode)
     return ReadyToStartMatchOriginal(GameMode);
 }
 
-APawn* SpawnDefaultPawnForHook(AFortGameModeAthena* GameMode, AController* NewPlayer, AActor* StartSpot)
+APawn* SpawnDefaultPawnForHook(AFortGameModeAthena* GameMode, AFortPlayerControllerAthena* PlayerController, AActor* StartSpot)
 {
-    auto PlayerState = (AFortPlayerStateAthena*)NewPlayer->PlayerState;
+    auto PlayerState = (AFortPlayerStateAthena*)PlayerController->PlayerState;
     PlayerState->AbilitySystemComponent->RemoveActiveGameplayEffectBySourceEffect(UGE_OutsideSafeZoneDamage_C::StaticClass(), nullptr, 1);
 
-    auto GAS_AthenaPlayer = UObject::FindObject<UFortAbilitySet>("FortAbilitySet GAS_AthenaPlayer.GAS_AthenaPlayer");
-    for (int i = 0; i < GAS_AthenaPlayer->GameplayAbilities.Num(); i++)
-    {
-        Abilities::GiveAbility(PlayerState->AbilitySystemComponent, GAS_AthenaPlayer->GameplayAbilities[i]);
-    }
+    auto AssetManager = Utils::GetAssetManager();
 
-    return GameMode->SpawnDefaultPawnAtTransform(NewPlayer, StartSpot->GetTransform());
+    auto GAS_AthenaPlayer = Utils::GetSoftPtr(AssetManager->GameDataBR->PlayerAbilitySetBR);
+    for (int i = 0; i < GAS_AthenaPlayer->GameplayAbilities.Num(); i++)
+        Abilities::GiveAbility(PlayerState->AbilitySystemComponent, GAS_AthenaPlayer->GameplayAbilities[i]);
+
+    for (int i = 0; i < 5; i++)
+        Inventory::GiveItem(PlayerController, (UFortWorldItemDefinition*)GameMode->StartingItems[i].Item, GameMode->StartingItems[i].Count);
+
+    Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCosmetics->FallbackPickaxe)->WeaponDefinition);
+    Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCommon->WoodItemDefinition));
+    Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCommon->StoneItemDefinition));
+    Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCommon->MetalItemDefinition));
+    Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataBR->DefaultGlobalCurrencyItemDefinition));
+    Inventory::Update(PlayerController);
+
+    static void (*ApplyCharacterCustomization)(AFortPlayerStateAthena*, AFortPlayerPawnAthena*) = decltype(ApplyCharacterCustomization)(Utils::Offset(0x6979050));
+
+    auto Pawn = (AFortPlayerPawnAthena*)GameMode->SpawnDefaultPawnAtTransform(PlayerController, StartSpot->GetTransform());
+    ApplyCharacterCustomization(PlayerState, Pawn);
+    return Pawn;
 }
 
 void ServerCheatHook(AFortPlayerControllerAthena* PlayerController, const FString& Msg)
@@ -171,6 +181,7 @@ void ServerCheatHook(AFortPlayerControllerAthena* PlayerController, const FStrin
     }
     else if (msg == L"testthing")
     {
+        UFortKismetLibrary::UpdatePlayerCustomCharacterPartsVisualization((AFortPlayerStateAthena*)PlayerController->PlayerState);
     }
 }
 
@@ -182,6 +193,8 @@ void ServerAttemptAircraftJumpHook(UFortControllerComponent_Aircraft* Component,
     auto Pawn = GameMode->SpawnDefaultPawnAtTransform(PlayerController, Component->CurrentAircraft->GetTransform());
     PlayerController->Possess(Pawn);
     PlayerController->ClientSetRotation(ClientRotation, false);
+
+    PlayerState->AbilitySystemComponent->RemoveActiveGameplayEffectBySourceEffect(UGE_OutsideSafeZoneDamage_C::StaticClass(), nullptr, 1);
 
     static bool PauseZoneThingy = true;
     if (!PauseZoneThingy)
@@ -209,20 +222,24 @@ DWORD MainThread(HMODULE Module)
     UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"log LogFortUIDirector None", nullptr);
     UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"log LogFort VeryVerbose", nullptr);
 
-    Hook::Function(InSDKUtils::GetImageBase() + 0xC440A0, TickFlushHook, &TickFlushOriginal);
-    Hook::Function(InSDKUtils::GetImageBase() + 0x7B69280, KickPlayerHook);
-    Hook::Function(InSDKUtils::GetImageBase() + 0xD141FC, GetNetModeHook);
-    Hook::Function(InSDKUtils::GetImageBase() + 0x15F7BDC, ReturnHook);
+    FMemory::Init((void*)(Utils::Offset(0x1958FF4)));
+
+    Hook::Function(Utils::Offset(0xC440A0), TickFlushHook, &TickFlushOriginal);
+    Hook::Function(Utils::Offset(0x7B69280), KickPlayerHook);
+    Hook::Function(Utils::Offset(0xD141FC), GetNetModeHook);
+    Hook::Function(Utils::Offset(0x15F7BDC), ReturnHook);
 
     Hook::VTable<AFortGameModeAthena>(2192 / 8, ReadyToStartMatchHook, &ReadyToStartMatchOriginal);
     Hook::VTable<AFortGameModeAthena>(1720 / 8, SpawnDefaultPawnForHook);
     Hook::VTable<AFortPlayerControllerAthena>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
     Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
+    Hook::VTable<AFortPlayerControllerAthena>(4440 / 8, Inventory::ServerExecuteInventoryItem);
+
     Hook::VTable<UFortAbilitySystemComponentAthena>(2120 / 8, Abilities::InternalServerTryActivateAbility);
     Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);
 
-    *(bool*)(InSDKUtils::GetImageBase() + 0xB6E20FD) = false; // GIsClient
-    *(bool*)(InSDKUtils::GetImageBase() + 0xB6E20FF) = true; // GIsServer
+    *(bool*)(Utils::Offset(0xB6E20FD)) = false; // GIsClient
+    *(bool*)(Utils::Offset(0xB6E20FF)) = true; // GIsServer
     UWorld::GetWorld()->OwningGameInstance->LocalPlayers.Remove(0);
     UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open Artemis_Terrain", nullptr);
 

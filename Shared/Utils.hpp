@@ -54,4 +54,41 @@ namespace Utils
     {
         return (void**)T::GetDefaultObj()->VTable;
     }
+
+    inline uintptr_t Offset(uintptr_t off)
+    {
+        return InSDKUtils::GetImageBase() + off;
+    }
+
+    UFortAssetManager* GetAssetManager()
+    {
+        return (UFortAssetManager*)UEngine::GetEngine()->AssetManager;
+    }
+
+    void MarkArrayDirty(FFastArraySerializer* arr)
+    {
+        static void (*InternalMarkArrayDirty)(FFastArraySerializer*) = decltype(InternalMarkArrayDirty)(Utils::Offset(0x1496200));
+        InternalMarkArrayDirty(arr);
+    }
+
+    template <typename T>
+    T* GetSoftPtr(TSoftObjectPtr<T> SoftPtr)
+    {
+        auto ret = SoftPtr.Get();
+
+        if (!ret)
+            ret = (T*)UKismetSystemLibrary::LoadAsset_Blocking((TSoftObjectPtr<UObject>)SoftPtr);
+
+        return (T*)ret;
+    }
+
+    UClass* GetSoftPtr(TSoftClassPtr<UClass>& SoftPtr)
+    {
+        auto ret = SoftPtr.Get();
+
+        if (!ret)
+            ret = UKismetSystemLibrary::LoadClassAsset_Blocking(SoftPtr);
+
+        return ret;
+    }
 }
