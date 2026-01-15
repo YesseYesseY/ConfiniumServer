@@ -13,8 +13,8 @@ namespace Building
 
     void ServerCreateBuildingActor(AFortPlayerControllerAthena* PlayerController, const FCreateBuildingActorData& CreateBuildingData)
     {
-
-        auto BuildClass = PlayerController->BroadcastRemoteClientInfo->RemoteBuildableClass;
+        static auto GameState = (AFortGameStateBR*)UWorld::GetWorld()->AuthorityGameMode->GameState;
+        auto BuildClass = GameState->AllPlayerBuildableClasses[CreateBuildingData.BuildingClassHandle];
         if (BuildClass)
         {
             auto Build = Utils::SpawnActorClass<ABuildingSMActor>(BuildClass, CreateBuildingData.BuildLoc, CreateBuildingData.BuildRot);
@@ -26,6 +26,8 @@ namespace Building
                     Actor->K2_DestroyActor();
 
                 Build->InitializeKismetSpawnedBuildingActor(Build, PlayerController, true, nullptr);
+
+                Inventory::RemoveItem(PlayerController, UFortKismetLibrary::K2_GetResourceItemDefinition(Build->ResourceType), 10);
             }
             else
             {

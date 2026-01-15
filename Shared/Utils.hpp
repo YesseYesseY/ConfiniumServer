@@ -1,7 +1,9 @@
 #include <SDK/FortniteGame_classes.hpp>
 
 using namespace SDK;
-    
+
+#define MessageBox(...) MessageBoxA(NULL, std::format(__VA_ARGS__).c_str(), "ConfiniumServer", MB_OK)
+
 namespace Utils
 {
     template <typename T>
@@ -78,23 +80,43 @@ namespace Utils
         InternalMarkArrayDirty(arr);
     }
 
+    void MarkItemDirty(FFastArraySerializer* arr, FFastArraySerializerItem* item)
+    {
+        static void (*InternalMarkItemDirty)(FFastArraySerializer*, FFastArraySerializerItem*) = decltype(InternalMarkItemDirty)(Utils::Offset(0x12a6388));
+        InternalMarkItemDirty(arr, item);
+    }
+
     template <typename T>
     T* GetSoftPtr(TSoftObjectPtr<T> SoftPtr)
     {
-        auto ret = SoftPtr.Get();
+        T* ret = nullptr;
+
+        if (SoftPtr.WeakPtr.ObjectIndex)
+        {
+            ret = SoftPtr.Get();
+        }
 
         if (!ret)
+        {
             ret = (T*)UKismetSystemLibrary::LoadAsset_Blocking((TSoftObjectPtr<UObject>)SoftPtr);
+        }
 
         return (T*)ret;
     }
 
     UClass* GetSoftPtr(TSoftClassPtr<UClass>& SoftPtr)
     {
-        auto ret = SoftPtr.Get();
+        UClass* ret = nullptr;
+
+        if (SoftPtr.WeakPtr.ObjectIndex)
+        {
+            ret = SoftPtr.Get();
+        }
 
         if (!ret)
-            ret = UKismetSystemLibrary::LoadClassAsset_Blocking(SoftPtr);
+        {
+            ret = UKismetSystemLibrary::LoadClassAsset_Blocking((TSoftClassPtr<UClass>)SoftPtr);
+        }
 
         return ret;
     }
@@ -110,5 +132,41 @@ namespace Utils
             if (Object->IsA(T::StaticClass()))
                 return (T*)Object;
         }
+    }
+
+    template <typename T>
+    T* FindDataTableRow(UDataTable* DataTable, FName Name)
+    {
+        for (auto thing : DataTable->RowMap)
+        {
+            if (thing.Key() == Name)
+            {
+                return (T*)thing.Value();
+            }
+        }
+
+        return nullptr;
+    }
+
+    FFortRangedWeaponStats* GetRangedStats(UFortWeaponRangedItemDefinition* ItemDef)
+    {
+        return FindDataTableRow<FFortRangedWeaponStats>(ItemDef->WeaponStatHandle.DataTable, ItemDef->WeaponStatHandle.RowName);
+    }
+
+    template <typename T = UObject>
+    T* FindObjectFast(const std::string& Name, EClassCastFlags RequiredType = EClassCastFlags::None, EClassCastFlags ExcludedType = EClassCastFlags::Package)
+    {
+        for (int i = 0; i < UObject::GObjects->Num(); ++i)
+        {
+            UObject* Object = UObject::GObjects->GetByIndex(i);
+        
+            if (!Object || Object->HasTypeFlag(ExcludedType))
+                continue;
+
+            if (Object->HasTypeFlag(RequiredType) && Object->GetName() == Name)
+                return (T*)Object;
+        }
+
+        return nullptr;
     }
 }

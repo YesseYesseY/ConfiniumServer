@@ -8,8 +8,6 @@
 
 #include <SDK/GE_OutsideSafeZoneDamage_classes.hpp>
 
-#define MessageBox(...) MessageBoxA(NULL, std::format(__VA_ARGS__).c_str(), "ConfiniumServer", MB_OK)
-
 #include "Inventory.hpp"
 #include "Abilities.hpp"
 #include "Vehicles.hpp"
@@ -122,6 +120,13 @@ APawn* SpawnDefaultPawnForHook(AFortGameModeAthena* GameMode, AFortPlayerControl
     Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCommon->StoneItemDefinition));
     Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCommon->MetalItemDefinition));
     Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataBR->DefaultGlobalCurrencyItemDefinition));
+    Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("WID_Shotgun_CoreBurst_Athena_SR"));
+    Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataShells"));
+    Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsLight"));
+    Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsMedium"));
+    Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsHeavy"));
+    Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AmmoDataRockets"));
+    // Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortContextTrapItemDefinition>("TID_Context_Reinforced_Athena"));
     Inventory::Update(PlayerController);
 
     static void (*ApplyCharacterCustomization)(AFortPlayerStateAthena*, AFortPlayerPawnAthena*) = decltype(ApplyCharacterCustomization)(Utils::Offset(0x6979050));
@@ -200,6 +205,8 @@ DWORD MainThread(HMODULE Module)
     Hook::Function(Utils::Offset(0x7B69280), KickPlayerHook);
     Hook::Function(Utils::Offset(0xD141FC), GetNetModeHook);
     Hook::Function(Utils::Offset(0x15F7BDC), ReturnHook);
+
+    Hook::Function(Utils::Offset(0x694108C), Inventory::RemoveInventoryItem);
 
     Hook::VTable<AFortGameModeAthena>(2192 / 8, ReadyToStartMatchHook, &ReadyToStartMatchOriginal);
     Hook::VTable<AFortGameModeAthena>(1720 / 8, SpawnDefaultPawnForHook);

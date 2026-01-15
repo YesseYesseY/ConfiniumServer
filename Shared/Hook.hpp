@@ -42,4 +42,13 @@ namespace Hook
             }
         }
     }
+
+    template <typename T = void*>
+    void UFunc(UFunction* Func, void* Hook, T* Original)
+    {
+        if (Original)
+            *Original = (T)Func->ExecFunction;
+
+        Func->ExecFunction = (UFunction::FNativeFuncPtr)Hook;
+    }
 }
