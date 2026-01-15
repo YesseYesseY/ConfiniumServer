@@ -1,14 +1,10 @@
 namespace Building
 {
-    bool CanPlaceBuild(ABuildingSMActor* Build, const FCreateBuildingActorData& CBD, TArray<ABuildingActor*>& Existing)
+    bool CanPlaceBuild(UClass* BuildClass, const FCreateBuildingActorData& CBD, TArray<ABuildingActor*>& Existing)
     {
-        // TODO Existing
-        return true;
-
-        // This works fine but doesn't include every highlighted prop in Existing
-        // static auto SupportSystem = Utils::FindFirstNonDefaultObject<UBuildingStructuralSupportSystem>();
-        // EFortBuildPreviewMarkerOptionalAdjustment thing;
-        // return SupportSystem->K2_CanAddBuildingActorToGrid(UWorld::GetWorld(), Build, CBD.BuildLoc, CBD.BuildRot, CBD.bMirrored, &Existing, &thing, false) == EFortStructuralGridQueryResults::CanAdd;
+        static auto SupportSystem = Utils::FindFirstNonDefaultObject<UBuildingStructuralSupportSystem>();
+        EFortBuildPreviewMarkerOptionalAdjustment thing;
+        return SupportSystem->CanAddBuildingActorClassToGrid(UWorld::GetWorld(), BuildClass, CBD.BuildLoc, CBD.BuildRot, CBD.bMirrored, &Existing, &thing, false) == EFortStructuralGridQueryResults::CanAdd;
     }
 
     void ServerCreateBuildingActor(AFortPlayerControllerAthena* PlayerController, const FCreateBuildingActorData& CreateBuildingData)
@@ -17,11 +13,10 @@ namespace Building
         auto BuildClass = GameState->AllPlayerBuildableClasses[CreateBuildingData.BuildingClassHandle];
         if (BuildClass)
         {
-            auto Build = Utils::SpawnActorClass<ABuildingSMActor>(BuildClass, CreateBuildingData.BuildLoc, CreateBuildingData.BuildRot);
-
-            static TArray<ABuildingActor*> Existing;
-            if (CanPlaceBuild(Build, CreateBuildingData, Existing))
+            TArray<ABuildingActor*> Existing;
+            if (CanPlaceBuild(BuildClass, CreateBuildingData, Existing))
             {
+                auto Build = Utils::SpawnActorClass<ABuildingSMActor>(BuildClass, CreateBuildingData.BuildLoc, CreateBuildingData.BuildRot);
                 for (auto Actor : Existing)
                     Actor->K2_DestroyActor();
 
@@ -29,12 +24,8 @@ namespace Building
 
                 Inventory::RemoveItem(PlayerController, UFortKismetLibrary::K2_GetResourceItemDefinition(Build->ResourceType), 10);
             }
-            else
-            {
-                Build->SilentDie(false);
-            }
 
-            Existing.Clear();
+            Existing.Free();
         }
     }
 
@@ -72,6 +63,16 @@ namespace Building
     void ServerRepairBuildingActor(AFortPlayerControllerAthena* PlayerController, ABuildingSMActor* BuildingActorToRepair)
     {
         auto Cost = UKismetMathLibrary::FFloor(UKismetMathLibrary::Lerp(7, 0, BuildingActorToRepair->GetHealthPercent()));
-        BuildingActorToRepair->RepairBuilding(PlayerController, Cost); // TODO Remove cost from inventory
+        BuildingActorToRepair->RepairBuilding(PlayerController, Cost);
+        Inventory::RemoveItem(PlayerController, UFortKismetLibrary::K2_GetResourceItemDefinition(BuildingActorToRepair->ResourceType), Cost);
+    }
+
+    void Init()
+    {
+        Hook::VTable<AFortPlayerControllerAthena>(4704 / 8, ServerCreateBuildingActor);
+        Hook::VTable<AFortPlayerControllerAthena>(4760 / 8, ServerBeginEditingBuildingActor);
+        Hook::VTable<AFortPlayerControllerAthena>(4744 / 8, ServerEndEditingBuildingActor);
+        Hook::VTable<AFortPlayerControllerAthena>(4720 / 8, ServerEditBuildingActor);
+        Hook::VTable<AFortPlayerControllerAthena>(4672 / 8, ServerRepairBuildingActor);
     }
 }

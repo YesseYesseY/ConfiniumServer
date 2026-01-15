@@ -159,7 +159,12 @@ void ServerCheatHook(AFortPlayerControllerAthena* PlayerController, const FStrin
     }
     else if (msg == L"testthing")
     {
-        UFortKismetLibrary::UpdatePlayerCustomCharacterPartsVisualization((AFortPlayerStateAthena*)PlayerController->PlayerState);
+        auto GameData = UObject::FindObject<UCurveTable>("CurveTable AthenaGameData.AthenaGameData");
+        auto RowMap = *(TMap<FName, FRealCurve*>*)(int64(GameData) + 0x30);
+        for (auto& thing : RowMap)
+        {
+            MessageBox("{}", thing.Key().ToString());
+        }
     }
 }
 
@@ -206,18 +211,14 @@ DWORD MainThread(HMODULE Module)
     Hook::Function(Utils::Offset(0xD141FC), GetNetModeHook);
     Hook::Function(Utils::Offset(0x15F7BDC), ReturnHook);
 
-    Hook::Function(Utils::Offset(0x694108C), Inventory::RemoveInventoryItem);
 
     Hook::VTable<AFortGameModeAthena>(2192 / 8, ReadyToStartMatchHook, &ReadyToStartMatchOriginal);
     Hook::VTable<AFortGameModeAthena>(1720 / 8, SpawnDefaultPawnForHook);
     Hook::VTable<AFortPlayerControllerAthena>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
     Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
-    Hook::VTable<AFortPlayerControllerAthena>(4440 / 8, Inventory::ServerExecuteInventoryItem);
-    Hook::VTable<AFortPlayerControllerAthena>(4704 / 8, Building::ServerCreateBuildingActor);
-    Hook::VTable<AFortPlayerControllerAthena>(4760 / 8, Building::ServerBeginEditingBuildingActor);
-    Hook::VTable<AFortPlayerControllerAthena>(4744 / 8, Building::ServerEndEditingBuildingActor);
-    Hook::VTable<AFortPlayerControllerAthena>(4720 / 8, Building::ServerEditBuildingActor);
-    Hook::VTable<AFortPlayerControllerAthena>(4672 / 8, Building::ServerRepairBuildingActor);
+
+    Building::Init();
+    Inventory::Init();
 
     Hook::VTable<UFortAbilitySystemComponentAthena>(2120 / 8, Abilities::InternalServerTryActivateAbility);
     Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);

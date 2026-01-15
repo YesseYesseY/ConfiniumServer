@@ -138,4 +138,10 @@ namespace Inventory
         auto PlayerController = (AFortPlayerControllerAthena*)(a1 - 0x710);
         RemoveItem(PlayerController, ItemGuid, Count);
     }
+
+    void Init()
+    {
+        Hook::Function(Utils::Offset(0x694108C), Inventory::RemoveInventoryItem);
+        Hook::VTable<AFortPlayerControllerAthena>(4440 / 8, Inventory::ServerExecuteInventoryItem);
+    }
 }
