@@ -1,10 +1,28 @@
 namespace Building
 {
-    bool CanPlaceBuild(UClass* BuildClass, const FCreateBuildingActorData& CBD, TArray<ABuildingActor*>& Existing)
+    bool CanPlaceBuild(UClass* BuildClass, FVector Location, FRotator Rotation, bool bMirrored, TArray<ABuildingActor*>& Existing)
     {
         static auto SupportSystem = Utils::FindFirstNonDefaultObject<UBuildingStructuralSupportSystem>();
         EFortBuildPreviewMarkerOptionalAdjustment thing;
-        return SupportSystem->CanAddBuildingActorClassToGrid(UWorld::GetWorld(), BuildClass, CBD.BuildLoc, CBD.BuildRot, CBD.bMirrored, &Existing, &thing, false) == EFortStructuralGridQueryResults::CanAdd;
+        return SupportSystem->CanAddBuildingActorClassToGrid(UWorld::GetWorld(), BuildClass, Location, Rotation, bMirrored, &Existing, &thing, false) == EFortStructuralGridQueryResults::CanAdd;
+    }
+
+    ABuildingSMActor* CreateBuildingActor(UClass* BuildClass, FVector Location, FRotator Rotation, bool bMirrored, AFortPlayerControllerAthena* PlayerController)
+    {
+        ABuildingSMActor* Build = nullptr;
+        TArray<ABuildingActor*> Existing;
+        if (CanPlaceBuild(BuildClass, Location, Rotation, bMirrored, Existing))
+        {
+            Build = Utils::SpawnActorClass<ABuildingSMActor>(BuildClass, Location, Rotation);
+            for (auto Actor : Existing)
+                Actor->K2_DestroyActor();
+
+            Build->InitializeKismetSpawnedBuildingActor(Build, PlayerController, true, nullptr);
+
+            Inventory::RemoveItem(PlayerController, UFortKismetLibrary::K2_GetResourceItemDefinition(Build->ResourceType), 10);
+        }
+        Existing.Free();
+        return Build;
     }
 
     void ServerCreateBuildingActor(AFortPlayerControllerAthena* PlayerController, const FCreateBuildingActorData& CreateBuildingData)
@@ -13,19 +31,7 @@ namespace Building
         auto BuildClass = GameState->AllPlayerBuildableClasses[CreateBuildingData.BuildingClassHandle];
         if (BuildClass)
         {
-            TArray<ABuildingActor*> Existing;
-            if (CanPlaceBuild(BuildClass, CreateBuildingData, Existing))
-            {
-                auto Build = Utils::SpawnActorClass<ABuildingSMActor>(BuildClass, CreateBuildingData.BuildLoc, CreateBuildingData.BuildRot);
-                for (auto Actor : Existing)
-                    Actor->K2_DestroyActor();
-
-                Build->InitializeKismetSpawnedBuildingActor(Build, PlayerController, true, nullptr);
-
-                Inventory::RemoveItem(PlayerController, UFortKismetLibrary::K2_GetResourceItemDefinition(Build->ResourceType), 10);
-            }
-
-            Existing.Free();
+            CreateBuildingActor(BuildClass, CreateBuildingData.BuildLoc, CreateBuildingData.BuildRot, CreateBuildingData.bMirrored, PlayerController);
         }
     }
 
@@ -79,6 +85,27 @@ namespace Building
         Inventory::RemoveItem(PlayerController, (UFortDecoItemDefinition*)Tool->ItemDefinition, 1);
     }
 
+    void ServerCreateBuildingAndSpawnDeco(AFortDecoTool* Tool, const FVector& BuildingLocation, const FRotator& BuildingRotation, const FVector& Location, 
+            const FRotator& Rotation, EBuildingAttachmentType InBuildingAttachmentType, bool bSpawnDecoOnExtraPiece, const FVector& BuildingExtraPieceLocation)
+    {
+        static UClass* Builds[9] = { 
+            UObject::FindClassFast("PBWA_W1_Floor_C"), UObject::FindClassFast("PBWA_W1_Solid_C"), UObject::FindClassFast("PBWA_W1_StairW_C"),
+            UObject::FindClassFast("PBWA_S1_Floor_C"), UObject::FindClassFast("PBWA_S1_Solid_C"), UObject::FindClassFast("PBWA_S1_StairW_C"),
+            UObject::FindClassFast("PBWA_M1_Floor_C"), UObject::FindClassFast("PBWA_M1_Solid_C"), UObject::FindClassFast("PBWA_M1_StairW_C")
+        };
+
+        auto Pawn = (AFortPlayerPawnAthena*)Tool->GetOwner();
+        auto PlayerController = (AFortPlayerControllerAthena*)Pawn->Controller;
+        auto BuildClass = Builds[((uint8)PlayerController->CurrentResourceType * 3) + ((uint8)InBuildingAttachmentType <= 1 ? (uint8)InBuildingAttachmentType : 2)];
+        ABuildingSMActor* Build;
+        if (BuildClass)
+        {
+            Build = CreateBuildingActor(BuildClass, BuildingLocation, BuildingRotation, false, PlayerController);
+        }
+
+        ServerSpawnDeco(Tool, Location, Rotation, Build, InBuildingAttachmentType);
+    }
+
     void Init()
     {
         Hook::VTable<AFortPlayerControllerAthena>(4704 / 8, ServerCreateBuildingActor);
@@ -89,5 +116,6 @@ namespace Building
 
         // 2952 is not null it calls 2984 and that one is null
         Hook::AllVTables<AFortDecoTool>(2952 / 8, ServerSpawnDeco);
+        Hook::AllVTables<AFortDecoTool>(2936 / 8, ServerCreateBuildingAndSpawnDeco);
     }
 }
