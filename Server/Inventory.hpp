@@ -53,6 +53,10 @@ namespace Inventory
 
         auto Pawn = (AFortPlayerPawnAthena*)PlayerController->Pawn;
         Pawn->EquipWeaponDefinition((UFortWeaponItemDefinition*)ItemEntry->ItemDefinition, ItemEntry->ItemGuid, {}, false);
+        if (ItemEntry->ItemDefinition->IsA(UFortDecoItemDefinition::StaticClass()))
+        {
+            Pawn->PickUpActor(nullptr, (UFortDecoItemDefinition*)ItemEntry->ItemDefinition);
+        }
     }
 
     void RemoveItem(AFortPlayerControllerAthena* PlayerController, const FGuid& ItemGuid, int32 Count)

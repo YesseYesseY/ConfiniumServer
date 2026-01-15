@@ -126,6 +126,7 @@ APawn* SpawnDefaultPawnForHook(AFortGameModeAthena* GameMode, AFortPlayerControl
     Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsMedium"));
     Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsHeavy"));
     Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AmmoDataRockets"));
+    Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortTrapItemDefinition>("TID_Floor_Player_Launch_Pad_Athena"));
     // Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortContextTrapItemDefinition>("TID_Context_Reinforced_Athena"));
     Inventory::Update(PlayerController);
 

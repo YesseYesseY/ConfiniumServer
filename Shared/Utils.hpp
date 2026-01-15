@@ -24,11 +24,11 @@ namespace Utils
 	}
 
 	template <typename T>
-	T* SpawnActorClass(UClass* ActorClass, FVector Location = { 0,0,0 }, FRotator Rotaion = { 0,0,0 }, FVector Scale = { 1,1,1 }, AActor* Owner = nullptr, ESpawnActorCollisionHandlingMethod ESACHM = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn)
+	T* SpawnActorClass(UClass* ActorClass, FVector Location = { 0,0,0 }, FRotator Rotation = { 0,0,0 }, AActor* Owner = nullptr, FVector Scale = { 1,1,1 }, ESpawnActorCollisionHandlingMethod ESACHM = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn)
 	{
 		FTransform translivesmatter = {};
 		translivesmatter.Translation = Location;
-		translivesmatter.Rotation = UKismetMathLibrary::Conv_RotatorToQuaternion(Rotaion);
+		translivesmatter.Rotation = UKismetMathLibrary::Conv_RotatorToQuaternion(Rotation);
 		translivesmatter.Scale3D = Scale;
 		return SpawnActorClass<T>(ActorClass, translivesmatter, Owner, ESACHM);
 	}
@@ -36,7 +36,7 @@ namespace Utils
 	template <typename T>
 	T* SpawnActor(FVector Location = { 0,0,0 }, FRotator Rotaion = { 0,0,0 }, FVector Scale = { 1,1,1 }, AActor* Owner = nullptr, ESpawnActorCollisionHandlingMethod ESACHM = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn)
 	{
-		return SpawnActorClass<T>(T::StaticClass(), Location, Rotaion, Scale, Owner, ESACHM);
+		return SpawnActorClass<T>(T::StaticClass(), Location, Rotaion, Owner, Scale, ESACHM);
 	}
 
     APlayerController* GetLocalPlayerController()

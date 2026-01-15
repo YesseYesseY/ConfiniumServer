@@ -67,6 +67,18 @@ namespace Building
         Inventory::RemoveItem(PlayerController, UFortKismetLibrary::K2_GetResourceItemDefinition(BuildingActorToRepair->ResourceType), Cost);
     }
 
+    void ServerSpawnDeco(AFortDecoTool* Tool, const FVector& Location, const FRotator& Rotation, ABuildingSMActor* AttachedActor, EBuildingAttachmentType InBuildingAttachmentType)
+    {
+        auto Pawn = (AFortPlayerPawnAthena*)Tool->GetOwner();
+        auto PlayerController = (AFortPlayerControllerAthena*)Pawn->Controller;
+        auto TrapClass = Utils::GetSoftPtr(((UFortDecoItemDefinition*)Tool->ItemDefinition)->BlueprintClass);
+        auto Trap = Utils::SpawnActorClass<ABuildingSMActor>(TrapClass, Location, Rotation, AttachedActor);
+        Trap->SetParentActorToAttachTo(AttachedActor);
+        Trap->BuildingAttachmentType = InBuildingAttachmentType;
+        Trap->InitializeKismetSpawnedBuildingActor(AttachedActor, PlayerController, true, nullptr);
+        Inventory::RemoveItem(PlayerController, (UFortDecoItemDefinition*)Tool->ItemDefinition, 1);
+    }
+
     void Init()
     {
         Hook::VTable<AFortPlayerControllerAthena>(4704 / 8, ServerCreateBuildingActor);
@@ -74,5 +86,8 @@ namespace Building
         Hook::VTable<AFortPlayerControllerAthena>(4744 / 8, ServerEndEditingBuildingActor);
         Hook::VTable<AFortPlayerControllerAthena>(4720 / 8, ServerEditBuildingActor);
         Hook::VTable<AFortPlayerControllerAthena>(4672 / 8, ServerRepairBuildingActor);
+
+        // 2952 is not null it calls 2984 and that one is null
+        Hook::AllVTables<AFortDecoTool>(2952 / 8, ServerSpawnDeco);
     }
 }
