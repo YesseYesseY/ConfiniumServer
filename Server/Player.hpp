@@ -40,15 +40,47 @@ namespace Player
             }
             outfile.close();
         }
+        else if (msg == L"uwu")
+        {
+            auto Spade = UObject::FindObject<AActor>("Apollo_Farm_Shovel_Spade_01_C Artemis_POI_Cattus_b7cecd75.Artemis_POI_Cattus.PersistentLevel.Apollo_Farm_Shovel_Spade_01_C_7");
+            PlayerController->Pawn->K2_TeleportTo(UKismetMathLibrary::Add_VectorVector(Spade->K2_GetActorLocation(), {0, 0, 10000 }), {});
+        }
         else if (msg == L"testthing")
         {
-            auto GameData = UObject::FindObject<UCurveTable>("CurveTable AthenaGameData.AthenaGameData");
-            auto RowMap = *(TMap<FName, FRealCurve*>*)(int64(GameData) + 0x30);
-            for (auto& thing : RowMap)
+            auto Subsystem = Utils::FindFirstNonDefaultObject<UGameFeaturesSubsystem>();
+            for (auto thing : Subsystem->GameFeaturePluginStateMachines)
             {
-                MessageBox("{}", thing.Key().ToString());
+                MessageBox("{}", thing.Value()->StateProperties.GameFeatureData->GetFullName());
             }
+
+            // auto GameData = UObject::FindObject<UCurveTable>("CurveTable AthenaGameData.AthenaGameData");
+            // auto RowMap = *(TMap<FName, FRealCurve*>*)(int64(GameData) + 0x30);
+            // for (auto& thing : RowMap)
+            // {
+            //     MessageBox("{}", thing.Key().ToString());
+            // }
         }
+    }
+
+    void TeleportPlayerPawn(UObject* obj, FFrame* Stack, bool* Ret)
+    {
+        UObject* WorldContextObject;
+        AFortPlayerPawn* PlayerPawn;
+        FVector DestLocation;
+        FRotator DestRotation;
+        bool bIgnoreCollision;
+        bool bIgnoreSupplementalKillVolumeSweep;
+        bool ReturnValue;
+
+        Stack->Step(&WorldContextObject);
+        Stack->Step(&PlayerPawn);
+        Stack->Step(&DestLocation);
+        Stack->Step(&DestRotation);
+        Stack->Step(&bIgnoreCollision);
+        Stack->Step(&bIgnoreSupplementalKillVolumeSweep);
+        Stack->End();
+
+        *Ret = PlayerPawn->K2_TeleportTo(DestLocation, DestRotation);
     }
 
     void Init()
@@ -56,5 +88,6 @@ namespace Player
         Hook::VTable<AFortPlayerControllerAthena>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
         Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
         Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);
+        Hook::UFunc("Function FortniteGame.FortMissionLibrary.TeleportPlayerPawn", TeleportPlayerPawn);
     }
 }

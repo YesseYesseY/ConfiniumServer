@@ -108,10 +108,10 @@ namespace Inventory
         }
     }
 
-    void GiveItem(AFortPlayerControllerAthena* PlayerController, UFortWorldItemDefinition* ItemDef, int32 Count = -1)
+    int GiveItem(AFortPlayerControllerAthena* PlayerController, UFortWorldItemDefinition* ItemDef, int32 Count = -1)
     {
         if (Count == 0 || !ItemDef)
-            return;
+            return -1;
 
         if (Count == -1)
             Count = UFortScalableFloatUtils::GetValueAsInteger(ItemDef->MaxStackSize, 0);
@@ -127,6 +127,7 @@ namespace Inventory
 
         PlayerController->WorldInventory->Inventory.ReplicatedEntries.Add(Item->ItemEntry);
         PlayerController->WorldInventory->Inventory.ItemInstances.Add(Item);
+        return PlayerController->WorldInventory->Inventory.ItemInstances.Num() - 1;
     }
 
     void ServerExecuteInventoryItem(AFortPlayerControllerAthena* PlayerController, const FGuid& ItemGuid)
@@ -143,9 +144,43 @@ namespace Inventory
         RemoveItem(PlayerController, ItemGuid, Count);
     }
 
+    void GiveItemToInventoryOwner(UObject* a1, FFrame* Stack, UFortWorldItem** Ret)
+    {
+        TScriptInterface<class IFortInventoryOwnerInterface> InventoryOwner;
+        UFortWorldItemDefinition* ItemDefinition;
+        FGuid ItemVariantGuid;
+        int32 NumberToGive;
+        bool bNotifyPlayer;
+        int32 ItemLevel;
+        int32 PickupInstigatorHandle;
+        bool bUseItemPickupAnalyticEvent;
+
+        Stack->Step(&InventoryOwner);
+        Stack->Step(&ItemDefinition);
+        Stack->Step(&ItemVariantGuid);
+        Stack->Step(&NumberToGive);
+        Stack->Step(&bNotifyPlayer);
+        Stack->Step(&ItemLevel);
+        Stack->Step(&PickupInstigatorHandle);
+        Stack->Step(&bUseItemPickupAnalyticEvent);
+        Stack->End();
+        
+        auto PlayerController = (AFortPlayerControllerAthena*)InventoryOwner.GetObjectRef();
+
+        auto Index = GiveItem(PlayerController, ItemDefinition, NumberToGive);
+        *Ret = nullptr;
+
+        if (Index != -1)
+        {
+            *Ret = PlayerController->WorldInventory->Inventory.ItemInstances[Index];
+            Update(PlayerController);
+        }
+    }
+
     void Init()
     {
         Hook::Function(Utils::Offset(0x694108C), Inventory::RemoveInventoryItem);
         Hook::VTable<AFortPlayerControllerAthena>(4440 / 8, Inventory::ServerExecuteInventoryItem);
+        Hook::UFunc("Function FortniteGame.FortKismetLibrary.GiveItemToInventoryOwner", GiveItemToInventoryOwner);
     }
 }
