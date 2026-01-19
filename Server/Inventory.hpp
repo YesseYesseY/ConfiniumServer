@@ -46,6 +46,11 @@ namespace Inventory
         return nullptr;
     }
 
+    int32 GetIndexOfItemEntry(AFortPlayerControllerAthena* PlayerController, FFortItemEntry* ItemEntry)
+    {
+        return ((uintptr_t)ItemEntry - (uintptr_t)PlayerController->WorldInventory->Inventory.ReplicatedEntries.GetDataPtr()) / sizeof(FFortItemEntry);
+    }
+
     void EquipItemEntry(AFortPlayerControllerAthena* PlayerController, FFortItemEntry* ItemEntry)
     {
         if (PlayerController->IsInAircraft())
@@ -59,22 +64,19 @@ namespace Inventory
         }
     }
 
-    void RemoveItem(AFortPlayerControllerAthena* PlayerController, const FGuid& ItemGuid, int32 Count)
+    void RemoveItem(AFortPlayerControllerAthena* PlayerController, FFortItemEntry* ItemEntry, int32 Count)
     {
-        int Index = -1;
-        if (auto ItemEntry = FindItemEntry(PlayerController, ItemGuid, &Index))
+        auto Index = GetIndexOfItemEntry(PlayerController, ItemEntry);
+        if (Count >= ItemEntry->Count)
         {
-            if (Count >= ItemEntry->Count)
-            {
-                PlayerController->WorldInventory->Inventory.ReplicatedEntries.Remove(Index);
-                PlayerController->WorldInventory->Inventory.ItemInstances.Remove(Index);
-                Update(PlayerController);
-            }
-            else
-            {
-                ItemEntry->Count -= Count;
-                Update(PlayerController, ItemEntry);
-            }
+            PlayerController->WorldInventory->Inventory.ReplicatedEntries.Remove(Index);
+            PlayerController->WorldInventory->Inventory.ItemInstances.Remove(Index);
+            Update(PlayerController);
+        }
+        else
+        {
+            ItemEntry->Count -= Count;
+            Update(PlayerController, ItemEntry);
         }
     }
 
@@ -141,7 +143,10 @@ namespace Inventory
     void RemoveInventoryItem(int64 a1, const FGuid& ItemGuid, int32 Count, bool bForceRemoveFromQuickBars, bool bForceRemove)
     {
         auto PlayerController = (AFortPlayerControllerAthena*)(a1 - 0x710);
-        RemoveItem(PlayerController, ItemGuid, Count);
+        if (auto ItemEntry = FindItemEntry(PlayerController, ItemGuid))
+        {
+            RemoveItem(PlayerController, ItemEntry, Count);
+        }
     }
 
     void GiveItemToInventoryOwner(UObject* a1, FFrame* Stack, UFortWorldItem** Ret)
@@ -177,10 +182,30 @@ namespace Inventory
         }
     }
 
+    // TODO
+    AFortPickupAthena* SpawnPickup(FFortItemEntry* ItemEntry, FVector Pos, AFortPlayerControllerAthena* PlayerController)
+    {
+        auto Pickup = Utils::SpawnActor<AFortPickupAthena>(Pos);
+        Pickup->PrimaryPickupItemEntry = *ItemEntry;
+        Pickup->OnRep_PrimaryPickupItemEntry();
+        Pickup->TossPickup(Pos, (AFortPlayerPawnAthena*)PlayerController->Pawn, 0, true, true, EFortPickupSourceTypeFlag(16 | 1), EFortPickupSpawnSource::TossedByPlayer);
+        return Pickup;
+    }
+
+    void ServerAttemptInventoryDrop(AFortPlayerControllerAthena* PlayerController, const FGuid& ItemGuid, int32 Count, bool bTrash)
+    {
+        if (auto ItemEntry = FindItemEntry(PlayerController, ItemGuid))
+        {
+            SpawnPickup(ItemEntry, PlayerController->Pawn->K2_GetActorLocation(), PlayerController);
+            Inventory::RemoveItem(PlayerController, ItemEntry, Count);
+        }
+    }
+
     void Init()
     {
         Hook::Function(Utils::Offset(0x694108C), Inventory::RemoveInventoryItem);
         Hook::VTable<AFortPlayerControllerAthena>(4440 / 8, Inventory::ServerExecuteInventoryItem);
+        Hook::VTable<AFortPlayerControllerAthena>(4552 / 8, Inventory::ServerAttemptInventoryDrop);
         Hook::UFunc("Function FortniteGame.FortKismetLibrary.GiveItemToInventoryOwner", GiveItemToInventoryOwner);
     }
 }

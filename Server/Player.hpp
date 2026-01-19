@@ -5,7 +5,7 @@ namespace Player
         auto GameMode = (AFortGameModeAthena*)UWorld::GetWorld()->AuthorityGameMode;
         auto PlayerController = (AFortPlayerControllerAthena*)Component->GetOwner();
         auto PlayerState = (AFortPlayerStateAthena*)PlayerController->PlayerState;
-        auto Pawn = GameMode->SpawnDefaultPawnAtTransform(PlayerController, Component->CurrentAircraft->GetTransform());
+        auto Pawn = (AFortPlayerPawnAthena*)GameMode->SpawnDefaultPawnAtTransform(PlayerController, Component->CurrentAircraft->GetTransform());
         PlayerController->Possess(Pawn);
         PlayerController->ClientSetRotation(ClientRotation, false);
     
@@ -17,6 +17,8 @@ namespace Player
             PauseZoneThingy = true;
             UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"pausesafezone", nullptr);
         }
+
+        Pawn->HealthSet->Health.CurrentValue = Pawn->HealthSet->Health.Maximum;
     }
 
     void ServerCheatHook(AFortPlayerControllerAthena* PlayerController, const FString& Msg)

@@ -169,4 +169,13 @@ namespace Utils
 
         return nullptr;
     }
+
+    bool RandomMinMax(float Min, float Max)
+    {
+        auto Chance = UKismetMathLibrary::RandomFloatInRange(Min, Max);
+        if (Chance <= 0.0f)
+            return false;
+
+        return UKismetMathLibrary::RandomFloatInRange(0.0f, 100.0f) <= Chance;
+    }
 }

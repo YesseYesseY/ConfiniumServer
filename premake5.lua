@@ -16,6 +16,8 @@ project "ConfiniumServer"
         "Shared/SDK/Engine_functions.cpp",
         "Shared/SDK/FortniteGame_functions.cpp",
         "Shared/SDK/GameplayAbilities_functions.cpp",
+        "Shared/SDK/GameplayTags_functions.cpp",
+        "Shared/SDK/ValetRuntime_functions.cpp",
 
         "minhook/src/**.c",
     }

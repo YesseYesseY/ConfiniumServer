@@ -54,6 +54,8 @@
     <ClCompile Include="..\Shared\SDK\Engine_functions.cpp" />
     <ClCompile Include="..\Shared\SDK\FortniteGame_functions.cpp" />
     <ClCompile Include="..\Shared\SDK\GameplayAbilities_functions.cpp" />
+    <ClCompile Include="..\Shared\SDK\GameplayTags_functions.cpp" />
+    <ClCompile Include="..\Shared\SDK\ValetRuntime_functions.cpp" />
     <ClCompile Include="..\minhook\src\buffer.c" />
     <ClCompile Include="..\minhook\src\hde\hde32.c" />
     <ClCompile Include="..\minhook\src\hde\hde64.c" />

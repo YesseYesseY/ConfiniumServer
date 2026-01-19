@@ -63,6 +63,7 @@ namespace Gamemode
         {
             InitedStuff = true;
     
+            Plugins::Init();
             Vehicles::ActivateSpawners();
         }
     

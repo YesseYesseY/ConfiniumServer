@@ -7,7 +7,11 @@
 #include <Hook.hpp>
 
 #include <SDK/GE_OutsideSafeZoneDamage_classes.hpp>
+#include <SDK/GameplayTags_classes.hpp>
+#include <SDK/ValetRuntime_classes.hpp>
 
+#include "Globals.hpp"
+#include "Plugins.hpp"
 #include "Inventory.hpp"
 #include "Abilities.hpp"
 #include "Vehicles.hpp"

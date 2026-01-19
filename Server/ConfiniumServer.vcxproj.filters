@@ -36,6 +36,12 @@
     <ClCompile Include="..\Shared\SDK\GameplayAbilities_functions.cpp">
       <Filter>..\Shared\SDK</Filter>
     </ClCompile>
+    <ClCompile Include="..\Shared\SDK\GameplayTags_functions.cpp">
+      <Filter>..\Shared\SDK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Shared\SDK\ValetRuntime_functions.cpp">
+      <Filter>..\Shared\SDK</Filter>
+    </ClCompile>
     <ClCompile Include="..\minhook\src\buffer.c">
       <Filter>..\minhook\src</Filter>
     </ClCompile>
