@@ -13,6 +13,7 @@
 #include "Globals.hpp"
 #include "Plugins.hpp"
 #include "Inventory.hpp"
+#include "Loot.hpp"
 #include "Abilities.hpp"
 #include "Vehicles.hpp"
 #include "Building.hpp"
@@ -46,6 +47,7 @@ DWORD MainThread(HMODULE Module)
     Net::Init();
     Gamemode::Init();
     Player::Init();
+    Loot::Init();
 
     Hook::VTable<UFortAbilitySystemComponentAthena>(2120 / 8, Abilities::InternalServerTryActivateAbility);
 

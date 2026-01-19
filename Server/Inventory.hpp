@@ -183,12 +183,15 @@ namespace Inventory
     }
 
     // TODO
-    AFortPickupAthena* SpawnPickup(FFortItemEntry* ItemEntry, FVector Pos, AFortPlayerControllerAthena* PlayerController)
+    AFortPickupAthena* SpawnPickup(FFortItemEntry* ItemEntry, FVector Pos, AFortPlayerControllerAthena* PlayerController = nullptr)
     {
         auto Pickup = Utils::SpawnActor<AFortPickupAthena>(Pos);
         Pickup->PrimaryPickupItemEntry = *ItemEntry;
         Pickup->OnRep_PrimaryPickupItemEntry();
-        Pickup->TossPickup(Pos, (AFortPlayerPawnAthena*)PlayerController->Pawn, 0, true, true, EFortPickupSourceTypeFlag(16 | 1), EFortPickupSpawnSource::TossedByPlayer);
+        uint8 SourceTypeFlag = PlayerController ? (16 | 1) : 0;
+        EFortPickupSpawnSource SpawnSource = PlayerController ? EFortPickupSpawnSource::TossedByPlayer : EFortPickupSpawnSource::Unset;
+        auto Pawn = PlayerController ? (AFortPlayerPawnAthena*)PlayerController->Pawn : nullptr;
+        Pickup->TossPickup(Pos, Pawn, 0, true, true, EFortPickupSourceTypeFlag(SourceTypeFlag), SpawnSource);
         return Pickup;
     }
 

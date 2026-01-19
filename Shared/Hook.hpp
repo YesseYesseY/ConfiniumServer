@@ -95,6 +95,17 @@ struct FFrame : FOutputDevice
         }
     }
 
+    template <typename T>
+    T& StepRef(void* a1)
+    {
+        MostRecentPropertyAddress = nullptr;
+        MostRecentPropertyContainer = nullptr;
+
+        Step(a1);
+
+        return (MostRecentPropertyAddress != nullptr) ? *(T*)(MostRecentPropertyAddress) : *(T*)a1;
+    }
+
     void End()
     {
         Code += !!Code;
