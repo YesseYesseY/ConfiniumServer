@@ -10,7 +10,7 @@
 #include <SDK/GameplayTags_classes.hpp>
 #include <SDK/ValetRuntime_classes.hpp>
 
-#include "Plugins.hpp"
+#include "GameFeatures.hpp"
 
 #include "Inventory.hpp"
 #include "Loot.hpp"

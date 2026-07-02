@@ -57,7 +57,7 @@ namespace Gamemode
             GameMode->WarmupEarlyCountdownDuration = 10;
             GameState->WarmupCountdownEndTime = Time + 10;
             GameState->WarmupCountdownStartTime = Time;
-            Plugins::Init();
+            GameFeatures::Init();
             Loot::Init();
             Vehicles::ActivateSpawners();
             return true;

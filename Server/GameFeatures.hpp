@@ -1,4 +1,4 @@
-namespace Plugins
+namespace GameFeatures
 {
     std::vector<UGameFeatureData*> Active;
 
@@ -14,7 +14,5 @@ namespace Plugins
             if (*(uint8*)(int64(thing.Value()) + 0x40) == 25)
                 Active.push_back(thing.Value()->StateProperties.GameFeatureData);
         }
-
-        MsgBox("{}", Active.size());
     }
 }

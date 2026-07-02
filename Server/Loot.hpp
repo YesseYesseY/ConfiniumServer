@@ -11,6 +11,11 @@ namespace Loot
             return Items.size() > 0 && TotalWeight > 0.0f;
         }
 
+        int32 Num()
+        {
+            return Items.size();
+        }
+
         void Add(T* thing)
         {
             if (!thing || thing->Weight <= 0.0f)
@@ -41,7 +46,121 @@ namespace Loot
     std::unordered_map<FName, WeightedContainer<FFortLootTierData>> LTDContainers;
     std::unordered_map<FName, WeightedContainer<FFortLootPackageData>> LPContainers;
 
-    void PickLootDrops(UObject* Obj, FFrame* Stack, bool* Ret)
+    void AddLTD(UDataTable* LTD)
+    {
+        if (!LTD)
+            return;
+
+        for (auto& thing : LTD->RowMap)
+        {
+            auto Data = (FFortLootTierData*)thing.Value();
+            LTDContainers[Data->TierGroup].Add(Data);
+        }
+    }
+
+    void AddLP(UDataTable* LP)
+    {
+        if (!LP)
+            return;
+
+        for (auto& thing : LP->RowMap)
+        {
+            auto Data = (FFortLootPackageData*)thing.Value();
+            LPContainers[Data->LootPackageID].Add(Data);
+        }
+    }
+
+    void PickLootDrops(TArray<FFortItemEntry>& OutLootToDrop, FName TierGroupName, int32 ForcedLootTier)
+    {
+        auto GameMode = (AFortGameModeAthena*)UWorld::GetWorld()->AuthorityGameMode;
+
+        for (auto& thing : GameMode->RedirectAthenaLootTierGroups)
+        {
+            if (thing.Key() == TierGroupName)
+                TierGroupName = thing.Value();
+        }
+
+        if (!LTDContainers.contains(TierGroupName))
+            return;
+
+        auto LootTier = LTDContainers[TierGroupName];
+        if (!LootTier.IsValid())
+            return;
+
+        auto LTI = LootTier.GetRandomItem();
+
+        if (!LPContainers.contains(LTI->LootPackage))
+            return;
+
+        auto BaseLootPackage = LPContainers[LTI->LootPackage];
+        auto IsWorldList = LTI->LootPackage.ToString().starts_with("WorldList");
+        if (IsWorldList)
+        {
+            for (int i = 0; i < LTI->NumLootPackageDrops; i++)
+            {
+                auto toadd = BaseLootPackage.GetRandomItem();
+                if (toadd->Count <= 0)
+                    continue;
+
+                OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(Utils::GetSoftPtr(toadd->ItemDefinition), toadd->Count, 0));
+            }
+        }
+        else
+        {
+            int Added = 0;
+            for (int i = 0; i < BaseLootPackage.Num(); i++)
+            {
+                if (Added >= LTI->NumLootPackageDrops)
+                    break;
+
+                for (int j = 0; j < LTI->LootPackageCategoryMinArray[i]; j++)
+                {
+                    auto LPC = UKismetStringLibrary::Conv_StringToName(BaseLootPackage.Items[i]->LootPackageCall);
+                    if (!LPContainers.contains(LPC))
+                        return;
+
+                    auto RealLootPackage = LPContainers[LPC];
+                    if (RealLootPackage.Num() <= 0)
+                        continue;
+
+                    Added++;
+                    auto toadd = RealLootPackage.GetRandomItem();
+                    if (toadd->Count <= 0)
+                        continue;
+                    auto ItemDef = Utils::GetSoftPtr(toadd->ItemDefinition);
+                    OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(ItemDef, toadd->Count, 0));
+
+                    static auto FWPSAD = UObject::FindObject<UFortWeaponPickupSpawnAmmoData>("FortWeaponPickupSpawnAmmoData FortWeaponPickupSpawnAmmoData.FortWeaponPickupSpawnAmmoData");
+
+                    if (!ItemDef->IsA(UFortWeaponItemDefinition::StaticClass()))
+                        continue;
+
+                    if (!FWPSAD)
+                        continue;
+
+                    auto WeaponDef = (UFortWeaponItemDefinition*)ItemDef;
+                    auto AmmoData = Utils::GetSoftPtr(WeaponDef->AmmoData);
+                    if (!AmmoData)
+                        continue;
+
+                    auto& AmmoTags = AmmoData->GameplayTags;
+                    auto& WPACA = FWPSAD->WeaponPickupAmmoCountArray;
+                    for (auto& WPACD : WPACA)
+                    {
+                        if (UBlueprintGameplayTagLibrary::HasTag(AmmoTags, WPACD.AmmoItemDefinitionTag, true))
+                        {
+                            OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(AmmoData, UFortScalableFloatUtils::GetValueAtLevel(WPACD.SpawnCount, 0.0f), 0));
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+
+    }
+
+    void PickLootDropsHook(UObject* Obj, FFrame* Stack, bool* Ret)
     {
         UObject* WorldContextObject;
         Stack->Step(&WorldContextObject);
@@ -60,11 +179,9 @@ namespace Loot
 
         Stack->End();
 
-        
+        PickLootDrops(OutLootToDrop, TierGroupName, ForcedLootTier);
 
-        static auto TempItemDef = Utils::FindObjectFast<UFortItemDefinition>("Athena_ShockGrenade");
-        OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(TempItemDef, 2, 0));
-        *Ret = true;
+        *Ret = OutLootToDrop.Num() > 0;
     }
 
     void K2_SpawnPickupInWorld(UObject* Obj, FFrame* Stack, AFortPickup** Ret)
@@ -110,28 +227,22 @@ namespace Loot
         *Ret = Pickup;
     }
 
-    void AddLTD(UDataTable* LTD)
+    bool ContainerSpawnLoot(ABuildingContainer* Container)
     {
-        if (!LTD)
-            return;
-
-        for (auto& thing : LTD->RowMap)
+        TArray<FFortItemEntry> Loot;
+        PickLootDrops(Loot, Container->SearchLootTierGroup, -1);
+        auto Position = UKismetMathLibrary::TransformLocation(Container->GetTransform(), Container->LootSpawnLocation_Athena);
+        int32 NumSteps = round(Container->LootTossConeHalfAngle_Athena / 18.0f);
+        for (auto& Entry : Loot)
         {
-            auto Data = (FFortLootTierData*)thing.Value();
-            LTDContainers[Data->TierGroup].Add(Data);
+            auto Pickup = Utils::SpawnActor<AFortPickupAthena>(Position);
+            Pickup->PrimaryPickupItemEntry = Entry;
+            Pickup->OnRep_PrimaryPickupItemEntry();
+            UFortKismetLibrary::TossPickupFromContainer(Container, Container, Pickup, NumSteps, UKismetMathLibrary::RandomInteger(NumSteps), Container->LootTossConeHalfAngle_Athena, Container->LootTossDirection_Athena, Container->LootTossSpeed_Athena, false);
         }
-    }
+        Loot.Free();
 
-    void AddLP(UDataTable* LP)
-    {
-        if (!LP)
-            return;
-
-        for (auto& thing : LP->RowMap)
-        {
-            auto Data = (FFortLootPackageData*)thing.Value();
-            LPContainers[Data->LootPackageID].Add(Data);
-        }
+        return true;
     }
 
     void Init()
@@ -142,7 +253,53 @@ namespace Loot
         AddLTD(Utils::GetSoftPtr(Playlist->LootTierData));
         AddLP(Utils::GetSoftPtr(Playlist->LootPackages));
 
-        Hook::UFunc("Function FortniteGame.FortKismetLibrary.PickLootDrops", PickLootDrops);
+        for (auto GameFeatureData : GameFeatures::Active)
+        {
+            if (!GameFeatureData->IsA(UFortGameFeatureData::StaticClass()))
+                continue;
+
+            auto Data = (UFortGameFeatureData*)GameFeatureData;
+
+            bool AddedLoot = false;
+            for (auto& thing : Data->PlaylistOverrideLootTableData)
+            {
+                if (UBlueprintGameplayTagLibrary::HasTag(Playlist->GameplayTagContainer, thing.Key(), true))
+                {
+                    AddedLoot = true;
+                    AddLTD(Utils::GetSoftPtr(thing.Value().LootTierData));
+                    AddLP(Utils::GetSoftPtr(thing.Value().LootPackageData));
+                    break;
+                }
+            }
+
+            if (!AddedLoot)
+            {
+                AddLTD(Utils::GetSoftPtr(Data->DefaultLootTableData.LootTierData));
+                AddLP(Utils::GetSoftPtr(Data->DefaultLootTableData.LootPackageData));
+            }
+        }
+
+        for (auto& thing : LPContainers)
+        {
+            for (auto Item : thing.second.Items)
+            {
+                Utils::GetSoftPtr(Item->ItemDefinition);
+            }
+        }
+
+        Hook::UFunc("Function FortniteGame.FortKismetLibrary.PickLootDrops", PickLootDropsHook);
         Hook::UFunc("Function FortniteGame.FortKismetLibrary.K2_SpawnPickupInWorld", K2_SpawnPickupInWorld);
+
+        Hook::Function(Utils::Offset(0x6300760), ContainerSpawnLoot);
+
+        auto FloorLoot1 = UObject::FindClassFast("Tiered_Athena_FloorLoot_01_C");
+        auto FloorLoot2 = UObject::FindClassFast("Tiered_Athena_FloorLoot_Warmup_C");
+
+        auto Containers = Utils::GetAllActorsOfClass<ABuildingContainer>();
+        for (auto Container : Containers)
+        {
+            if (Container->IsA(FloorLoot1) || Container->IsA(FloorLoot2))
+                ContainerSpawnLoot(Container);
+        }
     }
 }
