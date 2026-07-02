@@ -57,6 +57,9 @@ namespace Gamemode
             GameMode->WarmupEarlyCountdownDuration = 10;
             GameState->WarmupCountdownEndTime = Time + 10;
             GameState->WarmupCountdownStartTime = Time;
+            Plugins::Init();
+            Loot::Init();
+            Vehicles::ActivateSpawners();
             return true;
         }
 
@@ -65,15 +68,6 @@ namespace Gamemode
 
     APawn* SpawnDefaultPawnForHook(AFortGameModeAthena* GameMode, AFortPlayerControllerAthena* PlayerController, AActor* StartSpot)
     {
-        static bool InitedStuff = false;
-        if (!InitedStuff)
-        {
-            InitedStuff = true;
-    
-            Plugins::Init();
-            Vehicles::ActivateSpawners();
-        }
-    
         auto PlayerState = (AFortPlayerStateAthena*)PlayerController->PlayerState;
         PlayerState->AbilitySystemComponent->RemoveActiveGameplayEffectBySourceEffect(UGE_OutsideSafeZoneDamage_C::StaticClass(), nullptr, 1);
     

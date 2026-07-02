@@ -1,5 +1,46 @@
 namespace Loot
 {
+    template <typename T>
+    struct WeightedContainer
+    {
+        std::vector<T*> Items;
+        float TotalWeight;
+
+        bool IsValid()
+        {
+            return Items.size() > 0 && TotalWeight > 0.0f;
+        }
+
+        void Add(T* thing)
+        {
+            if (!thing || thing->Weight <= 0.0f)
+                return;
+
+            Items.push_back(thing);
+            TotalWeight += thing->Weight;
+        }
+
+        T* GetRandomItem()
+        {
+            float Randy = UKismetMathLibrary::RandomFloatInRange(0, TotalWeight);
+            float Total = 0.0f;
+
+            for (auto Item : Items)
+            {
+                Total += Item->Weight;
+                if (Total >= Randy)
+                {
+                    return Item;
+                }
+            }
+
+            return nullptr;
+        }
+    };
+
+    std::unordered_map<FName, WeightedContainer<FFortLootTierData>> LTDContainers;
+    std::unordered_map<FName, WeightedContainer<FFortLootPackageData>> LPContainers;
+
     void PickLootDrops(UObject* Obj, FFrame* Stack, bool* Ret)
     {
         UObject* WorldContextObject;
@@ -18,6 +59,8 @@ namespace Loot
         Stack->Step(&ForcedLootTier);
 
         Stack->End();
+
+        
 
         static auto TempItemDef = Utils::FindObjectFast<UFortItemDefinition>("Athena_ShockGrenade");
         OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(TempItemDef, 2, 0));
@@ -67,8 +110,38 @@ namespace Loot
         *Ret = Pickup;
     }
 
+    void AddLTD(UDataTable* LTD)
+    {
+        if (!LTD)
+            return;
+
+        for (auto& thing : LTD->RowMap)
+        {
+            auto Data = (FFortLootTierData*)thing.Value();
+            LTDContainers[Data->TierGroup].Add(Data);
+        }
+    }
+
+    void AddLP(UDataTable* LP)
+    {
+        if (!LP)
+            return;
+
+        for (auto& thing : LP->RowMap)
+        {
+            auto Data = (FFortLootPackageData*)thing.Value();
+            LPContainers[Data->LootPackageID].Add(Data);
+        }
+    }
+
     void Init()
     {
+        auto GameState = (AFortGameStateAthena*)UWorld::GetWorld()->GameState;
+        auto Playlist = GameState->CurrentPlaylistInfo.BasePlaylist;
+
+        AddLTD(Utils::GetSoftPtr(Playlist->LootTierData));
+        AddLP(Utils::GetSoftPtr(Playlist->LootPackages));
+
         Hook::UFunc("Function FortniteGame.FortKismetLibrary.PickLootDrops", PickLootDrops);
         Hook::UFunc("Function FortniteGame.FortKismetLibrary.K2_SpawnPickupInWorld", K2_SpawnPickupInWorld);
     }

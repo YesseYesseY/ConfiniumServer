@@ -14,8 +14,8 @@ namespace Vehicles
             bool SpawnIt = Spawner->bForceSpawnAlways;
             if (!SpawnIt)
             {
-                auto Min = Globals::GetGameData(VID->VehicleMinSpawnPercent, 0.0f);
-                auto Max = Globals::GetGameData(VID->VehicleMaxSpawnPercent, 0.0f);
+                auto Min = UFortScalableFloatUtils::GetValueAtLevel(VID->VehicleMinSpawnPercent, 0.0f);
+                auto Max = UFortScalableFloatUtils::GetValueAtLevel(VID->VehicleMaxSpawnPercent, 0.0f);
                 SpawnIt = Utils::RandomMinMax(Min, Max);
             }
 
@@ -25,8 +25,8 @@ namespace Vehicles
 
                 // Inoperable
                 {
-                    auto Min = Globals::GetGameData(VID->MinPercentInoperable, 0.0f);
-                    auto Max = Globals::GetGameData(VID->MaxPercentInoperable, 0.0f);
+                    auto Min = UFortScalableFloatUtils::GetValueAtLevel(VID->MinPercentInoperable, 0.0f);
+                    auto Max = UFortScalableFloatUtils::GetValueAtLevel(VID->MaxPercentInoperable, 0.0f);
                     if (Vehicle->IsA(AFortDagwoodVehicle::StaticClass()) && Utils::RandomMinMax(Min, Max))
                     {
                         auto Dagwood = (AFortDagwoodVehicle*)Vehicle;

@@ -179,3 +179,12 @@ namespace Utils
         return UKismetMathLibrary::RandomFloatInRange(0.0f, 100.0f) <= Chance;
     }
 }
+
+template<>
+struct std::hash<FName>
+{
+    std::size_t operator()(const FName& name) const noexcept
+    {
+        return std::hash<uint64_t>{}(*(uint64_t*)this);
+    }
+};
