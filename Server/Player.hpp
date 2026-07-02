@@ -9,8 +9,6 @@ namespace Player
         PlayerController->Possess(Pawn);
         PlayerController->ClientSetRotation(ClientRotation, false);
     
-        PlayerState->AbilitySystemComponent->RemoveActiveGameplayEffectBySourceEffect(UGE_OutsideSafeZoneDamage_C::StaticClass(), nullptr, 1);
-    
         static bool PauseZoneThingy = true;
         if (!PauseZoneThingy)
         {
@@ -47,20 +45,8 @@ namespace Player
             auto Spade = UObject::FindObject<AActor>("Apollo_Farm_Shovel_Spade_01_C Artemis_POI_Cattus_b7cecd75.Artemis_POI_Cattus.PersistentLevel.Apollo_Farm_Shovel_Spade_01_C_7");
             PlayerController->Pawn->K2_TeleportTo(UKismetMathLibrary::Add_VectorVector(Spade->K2_GetActorLocation(), {0, 0, 10000 }), {});
         }
-        else if (msg == L"testthing")
+        else if (msg == L"test")
         {
-            auto Subsystem = Utils::FindFirstNonDefaultObject<UGameFeaturesSubsystem>();
-            for (auto thing : Subsystem->GameFeaturePluginStateMachines)
-            {
-                MessageBox("{}", thing.Value()->StateProperties.GameFeatureData->GetFullName());
-            }
-
-            // auto GameData = UObject::FindObject<UCurveTable>("CurveTable AthenaGameData.AthenaGameData");
-            // auto RowMap = *(TMap<FName, FRealCurve*>*)(int64(GameData) + 0x30);
-            // for (auto& thing : RowMap)
-            // {
-            //     MessageBox("{}", thing.Key().ToString());
-            // }
         }
     }
 
@@ -85,10 +71,34 @@ namespace Player
         *Ret = PlayerPawn->K2_TeleportTo(DestLocation, DestRotation);
     }
 
+    void SafezoneCheckThing(AFortPlayerPawn* Pawn, bool a2)
+    {
+        if (Pawn->bIsInsideSafeZone != a2)
+        {
+            Pawn->bIsInsideSafeZone = a2;
+
+            auto ASC = Pawn->AbilitySystemComponent;
+            if (ASC)
+            {
+                auto v5 = Pawn->bIsInsideSafeZone;
+                static auto Tags = UBlueprintGameplayTagLibrary::MakeGameplayTagContainerFromTag({ UKismetStringLibrary::Conv_StringToName(L"Gameplay.InsideSafeZone") });
+                if (a2)
+                    UAbilitySystemBlueprintLibrary::AddLooseGameplayTags(Pawn, Tags);
+                else
+                    UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(Pawn, Tags);
+            }
+        }
+
+        static void (*ProcessMulticastDelegate)(void*, void*) = decltype(ProcessMulticastDelegate)(InSDKUtils::GetImageBase() + 0xD0F12C);
+        bool arg = Pawn->bIsInsideSafeZone != false;
+        ProcessMulticastDelegate(&Pawn->OnSafeZoneOccupancyChangedEvent, &arg);
+    }
+
     void Init()
     {
         Hook::VTable<AFortPlayerControllerAthena>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
         Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
+        Hook::VTable<AFortPlayerPawnAthena>(4616 / 8, SafezoneCheckThing);
         Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);
         Hook::UFunc("Function FortniteGame.FortMissionLibrary.TeleportPlayerPawn", TeleportPlayerPawn);
     }

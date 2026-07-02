@@ -106,6 +106,31 @@ namespace Building
         ServerSpawnDeco(Tool, Location, Rotation, Build, InBuildingAttachmentType);
     }
 
+    void SetDynamicFoundationEnabled(ABuildingFoundation* Foundation, FFrame* Stack)
+    {
+        bool Enabled;
+        Stack->Step(&Enabled);
+        Stack->End();
+
+        auto State = Enabled ? EDynamicFoundationEnabledState::Enabled : EDynamicFoundationEnabledState::Disabled;
+
+        Foundation->FoundationEnabledState = State;
+        Foundation->DynamicFoundationRepData.EnabledState = State;
+        Foundation->OnRep_DynamicFoundationRepData();
+    }
+
+    void SetDynamicFoundationTransform(ABuildingFoundation* Foundation, FFrame* Stack)
+    {
+        FTransform NewTransform;
+        Stack->Step(&NewTransform);
+        Stack->End();
+
+        Foundation->DynamicFoundationTransform = NewTransform;
+        Foundation->DynamicFoundationRepData.Translation = NewTransform.Translation;
+        Foundation->DynamicFoundationRepData.Rotation = UKismetMathLibrary::Quat_Rotator(NewTransform.Rotation);
+        Foundation->OnRep_DynamicFoundationRepData();
+    }
+
     void Init()
     {
         Hook::VTable<AFortPlayerControllerAthena>(4704 / 8, ServerCreateBuildingActor);
@@ -117,5 +142,8 @@ namespace Building
         // 2952 is not null it calls 2984 and that one is null
         Hook::AllVTables<AFortDecoTool>(2952 / 8, ServerSpawnDeco);
         Hook::AllVTables<AFortDecoTool>(2936 / 8, ServerCreateBuildingAndSpawnDeco);
+
+        Hook::UFunc("Function FortniteGame.BuildingFoundation.SetDynamicFoundationEnabled", SetDynamicFoundationEnabled);
+        Hook::UFunc("Function FortniteGame.BuildingFoundation.SetDynamicFoundationTransform", SetDynamicFoundationTransform);
     }
 }

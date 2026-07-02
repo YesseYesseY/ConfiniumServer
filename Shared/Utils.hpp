@@ -2,7 +2,7 @@
 
 using namespace SDK;
 
-#define MessageBox(...) MessageBoxA(NULL, std::format(__VA_ARGS__).c_str(), "ConfiniumServer", MB_OK)
+#define MsgBox(...) MessageBoxA(NULL, std::format(__VA_ARGS__).c_str(), "ConfiniumServer", MB_OK)
 
 namespace Utils
 {

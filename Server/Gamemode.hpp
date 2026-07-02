@@ -4,6 +4,8 @@ namespace Gamemode
     bool (*ReadyToStartMatchOriginal)(AFortGameModeAthena* GameMode);
     bool ReadyToStartMatchHook(AFortGameModeAthena* GameMode)
     {
+        auto GameState = (AFortGameStateAthena*)GameMode->GameState;
+
         if (!ServerStarted)
         {
             ServerStarted = true;
@@ -13,21 +15,16 @@ namespace Gamemode
             bool (*InitListen)(UNetDriver*, void*, FURL&, bool, FString&) = decltype(InitListen)(Utils::Offset(0x51E98A0));
             void (*SetWorld)(UNetDriver*, UWorld*) = decltype(SetWorld)(Utils::Offset(0xC2BB9C));
     
-            auto GameState = (AFortGameStateAthena*)GameMode->GameState;
             auto Playlist = UObject::FindObject<UFortPlaylistAthena>("FortPlaylistAthena Playlist_DefaultSolo.Playlist_DefaultSolo");
-            Playlist->LastSafeZoneIndex = 0;
             GameState->CurrentPlaylistInfo.BasePlaylist = Playlist;
             GameState->CurrentPlaylistInfo.OverridePlaylist = Playlist;
             GameState->CurrentPlaylistInfo.PlaylistReplicationKey++;
             GameState->OnRep_CurrentPlaylistInfo();
     
-            GameState->GamePhase = EAthenaGamePhase::Warmup;
-            GameState->OnRep_GamePhase(EAthenaGamePhase::Setup);
-    
             GameMode->WarmupRequiredPlayerCount = 1;
             GameMode->WarmupCountdownDuration = INT32_MAX;
             GameMode->WarmupEarlyCountdownDuration = INT32_MAX;
-            GameState->WarmupCountdownEndTime = INT32_MAX; 
+            GameState->WarmupCountdownEndTime = INT32_MAX;
             GameState->WarmupCountdownStartTime = 0;
     
             auto Beacon = Utils::SpawnActor<AFortOnlineBeaconHost>();
@@ -53,7 +50,17 @@ namespace Gamemode
             GameMode->bWorldIsReady = true;
         }
     
-        return ReadyToStartMatchOriginal(GameMode);
+        if (GameMode->NumPlayers > 0)
+        {
+            auto Time = UGameplayStatics::GetTimeSeconds(UWorld::GetWorld());
+            GameMode->WarmupCountdownDuration = 10;
+            GameMode->WarmupEarlyCountdownDuration = 10;
+            GameState->WarmupCountdownEndTime = Time + 10;
+            GameState->WarmupCountdownStartTime = Time;
+            return true;
+        }
+
+        return false;
     }
 
     APawn* SpawnDefaultPawnForHook(AFortGameModeAthena* GameMode, AFortPlayerControllerAthena* PlayerController, AActor* StartSpot)
@@ -102,10 +109,34 @@ namespace Gamemode
         ApplyCharacterCustomization(PlayerState, Pawn);
         return Pawn;
     }
+
+    void (*StartNewSafeZonePhaseOriginal)(AFortGameModeAthena* GameMode, int a2);
+    void StartNewSafeZonePhase(AFortGameModeAthena* GameMode, int a2)
+    {
+        StartNewSafeZonePhaseOriginal(GameMode, a2);
+
+        auto GameState = (AFortGameStateAthena*)GameMode->GameState;
+
+        auto& WaitTimes = *(TArray<float>*)(int64(GameState->MapInfo) + 0x828);
+        auto& ShrinkTimes = *(TArray<float>*)(int64(GameState->MapInfo) + 0x838);
+        GameMode->SafeZoneIndicator->SafeZoneStartShrinkTime = GameMode->SafeZoneIndicator->SafeZoneFinishShrinkTime + WaitTimes[GameMode->SafeZonePhase];
+        GameMode->SafeZoneIndicator->SafeZoneFinishShrinkTime = GameMode->SafeZoneIndicator->SafeZoneStartShrinkTime + ShrinkTimes[GameMode->SafeZonePhase];
+    }
+
+    // Hooking this bypasses waiting for navmesh on BP_CalendarDynamicPOISelect_C
+    void GetPlaylistEnableBotsHook(UObject* Obj, FFrame* Stack, bool* Ret)
+    {
+        Stack->End();
+        *Ret = false;
+    }
     
     void Init()
     {
         Hook::VTable<AFortGameModeAthena>(2192 / 8, ReadyToStartMatchHook, &ReadyToStartMatchOriginal);
         Hook::VTable<AFortGameModeAthena>(1720 / 8, SpawnDefaultPawnForHook);
+
+        Hook::Function(InSDKUtils::GetImageBase() + 0x6109094, StartNewSafeZonePhase, &StartNewSafeZonePhaseOriginal);
+
+        Hook::UFunc("Function FortniteGame.FortGameModeAthena.GetPlaylistEnableBots", GetPlaylistEnableBotsHook);
     }
 }
