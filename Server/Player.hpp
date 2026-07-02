@@ -94,12 +94,38 @@ namespace Player
         ProcessMulticastDelegate(&Pawn->OnSafeZoneOccupancyChangedEvent, &arg);
     }
 
+    void ServerTeleportToPlaygroundIslandDock(AFortPlayerControllerAthena* Controller)
+    {
+        static auto CreativeStarts = Utils::GetAllActorsOfClass<AFortPlayerStartCreative>();
+
+        auto Start = CreativeStarts[UKismetMathLibrary::RandomInteger(CreativeStarts.Num())];
+        auto Pawn = Controller->Pawn;
+        if (!Pawn || !Start)
+            return;
+
+        Pawn->K2_TeleportTo(Start->K2_GetActorLocation(), Start->K2_GetActorRotation());
+    }
+
+    void PortalTeleportPlayer(AFortAthenaCreativePortal* Portal, FFrame* Stack)
+    {
+        AFortPlayerPawn* PlayerPawn;
+        FRotator TeleportRotation;
+
+        Stack->Step(&PlayerPawn);
+        Stack->Step(&TeleportRotation);
+        Stack->End();
+
+        PlayerPawn->K2_TeleportTo(Portal->TeleportLocation, TeleportRotation);
+    }
+
     void Init()
     {
         Hook::VTable<AFortPlayerControllerAthena>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
         Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
+        Hook::VTable<AFortPlayerControllerAthena>(10800 / 8, ServerTeleportToPlaygroundIslandDock);
         Hook::VTable<AFortPlayerPawnAthena>(4616 / 8, SafezoneCheckThing);
         Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);
         Hook::UFunc("Function FortniteGame.FortMissionLibrary.TeleportPlayerPawn", TeleportPlayerPawn);
+        Hook::UFunc("Function FortniteGame.FortAthenaCreativePortal.TeleportPlayer", PortalTeleportPlayer);
     }
 }

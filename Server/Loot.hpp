@@ -1,9 +1,50 @@
 namespace Loot
 {
+    struct LTDData
+    {
+        float Weight;
+        FName LootPackage;
+        float NumLootPackageDrops;
+        std::vector<int32> LootPackageCategoryMinArray;
+
+        LTDData()
+        {
+        }
+
+        LTDData(FFortLootTierData* Data)
+        {
+            Weight = Data->Weight;
+            LootPackage = Data->LootPackage;
+            NumLootPackageDrops = Data->NumLootPackageDrops;
+            for (auto thing : Data->LootPackageCategoryMinArray)
+                LootPackageCategoryMinArray.push_back(thing);
+        }
+    };
+
+    struct LPData
+    {
+        float Weight;
+        int32 Count;
+        FName LootPackageCall;
+        UFortItemDefinition* ItemDefinition;
+
+        LPData()
+        {
+        }
+
+        LPData(FFortLootPackageData* Data)
+        {
+            Weight = Data->Weight;
+            Count = Data->Count;
+            LootPackageCall = UKismetStringLibrary::Conv_StringToName(Data->LootPackageCall);
+            ItemDefinition = Utils::GetSoftPtr(Data->ItemDefinition);
+        }
+    };
+
     template <typename T>
     struct WeightedContainer
     {
-        std::vector<T*> Items;
+        std::vector<T> Items;
         float TotalWeight;
 
         bool IsValid()
@@ -16,35 +57,35 @@ namespace Loot
             return Items.size();
         }
 
-        void Add(T* thing)
+        void Add(T thing)
         {
-            if (!thing || thing->Weight <= 0.0f)
+            if (thing.Weight <= 0.0f)
                 return;
 
             Items.push_back(thing);
-            TotalWeight += thing->Weight;
+            TotalWeight += thing.Weight;
         }
 
-        T* GetRandomItem()
+        T GetRandomItem()
         {
             float Randy = UKismetMathLibrary::RandomFloatInRange(0, TotalWeight);
             float Total = 0.0f;
 
             for (auto Item : Items)
             {
-                Total += Item->Weight;
+                Total += Item.Weight;
                 if (Total >= Randy)
                 {
                     return Item;
                 }
             }
 
-            return nullptr;
+            return Items[0];
         }
     };
 
-    std::unordered_map<FName, WeightedContainer<FFortLootTierData>> LTDContainers;
-    std::unordered_map<FName, WeightedContainer<FFortLootPackageData>> LPContainers;
+    std::unordered_map<FName, WeightedContainer<LTDData>> LTDContainers;
+    std::unordered_map<FName, WeightedContainer<LPData>> LPContainers;
 
     void AddLTD(UDataTable* LTD)
     {
@@ -54,7 +95,7 @@ namespace Loot
         for (auto& thing : LTD->RowMap)
         {
             auto Data = (FFortLootTierData*)thing.Value();
-            LTDContainers[Data->TierGroup].Add(Data);
+            LTDContainers[Data->TierGroup].Add(LTDData(Data));
         }
     }
 
@@ -66,7 +107,7 @@ namespace Loot
         for (auto& thing : LP->RowMap)
         {
             auto Data = (FFortLootPackageData*)thing.Value();
-            LPContainers[Data->LootPackageID].Add(Data);
+            LPContainers[Data->LootPackageID].Add(LPData(Data));
         }
     }
 
@@ -89,20 +130,20 @@ namespace Loot
 
         auto LTI = LootTier.GetRandomItem();
 
-        if (!LPContainers.contains(LTI->LootPackage))
+        if (!LPContainers.contains(LTI.LootPackage))
             return;
 
-        auto BaseLootPackage = LPContainers[LTI->LootPackage];
-        auto IsWorldList = LTI->LootPackage.ToString().starts_with("WorldList");
+        auto BaseLootPackage = LPContainers[LTI.LootPackage];
+        auto IsWorldList = LTI.LootPackage.ToString().starts_with("WorldList");
         if (IsWorldList)
         {
-            for (int i = 0; i < LTI->NumLootPackageDrops; i++)
+            for (int i = 0; i < LTI.NumLootPackageDrops; i++)
             {
                 auto toadd = BaseLootPackage.GetRandomItem();
-                if (toadd->Count <= 0)
+                if (toadd.Count <= 0)
                     continue;
 
-                OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(Utils::GetSoftPtr(toadd->ItemDefinition), toadd->Count, 0));
+                OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(toadd.ItemDefinition, toadd.Count, 0));
             }
         }
         else
@@ -110,12 +151,12 @@ namespace Loot
             int Added = 0;
             for (int i = 0; i < BaseLootPackage.Num(); i++)
             {
-                if (Added >= LTI->NumLootPackageDrops)
+                if (Added >= LTI.NumLootPackageDrops)
                     break;
 
-                for (int j = 0; j < LTI->LootPackageCategoryMinArray[i]; j++)
+                for (int j = 0; j < LTI.LootPackageCategoryMinArray[i]; j++)
                 {
-                    auto LPC = UKismetStringLibrary::Conv_StringToName(BaseLootPackage.Items[i]->LootPackageCall);
+                    auto LPC = BaseLootPackage.Items[i].LootPackageCall;
                     if (!LPContainers.contains(LPC))
                         return;
 
@@ -125,10 +166,10 @@ namespace Loot
 
                     Added++;
                     auto toadd = RealLootPackage.GetRandomItem();
-                    if (toadd->Count <= 0)
+                    if (toadd.Count <= 0)
                         continue;
-                    auto ItemDef = Utils::GetSoftPtr(toadd->ItemDefinition);
-                    OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(ItemDef, toadd->Count, 0));
+                    auto ItemDef = toadd.ItemDefinition;
+                    OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(ItemDef, toadd.Count, 0));
 
                     static auto FWPSAD = UObject::FindObject<UFortWeaponPickupSpawnAmmoData>("FortWeaponPickupSpawnAmmoData FortWeaponPickupSpawnAmmoData.FortWeaponPickupSpawnAmmoData");
 
@@ -181,7 +222,7 @@ namespace Loot
 
         PickLootDrops(OutLootToDrop, TierGroupName, ForcedLootTier);
 
-        *Ret = OutLootToDrop.Num() > 0;
+        *Ret = true;
     }
 
     void K2_SpawnPickupInWorld(UObject* Obj, FFrame* Stack, AFortPickup** Ret)
@@ -276,14 +317,6 @@ namespace Loot
             {
                 AddLTD(Utils::GetSoftPtr(Data->DefaultLootTableData.LootTierData));
                 AddLP(Utils::GetSoftPtr(Data->DefaultLootTableData.LootPackageData));
-            }
-        }
-
-        for (auto& thing : LPContainers)
-        {
-            for (auto Item : thing.second.Items)
-            {
-                Utils::GetSoftPtr(Item->ItemDefinition);
             }
         }
 
