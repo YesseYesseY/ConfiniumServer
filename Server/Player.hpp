@@ -19,7 +19,7 @@ namespace Player
         Pawn->HealthSet->Health.CurrentValue = Pawn->HealthSet->Health.Maximum;
     }
 
-    void ServerCheatHook(AFortPlayerControllerAthena* PlayerController, const FString& Msg)
+    void ServerCheatHook(AFortPlayerController* PlayerController, const FString& Msg)
     {
         auto msg = Msg.ToWString();
     
@@ -39,11 +39,6 @@ namespace Player
                 outfile << Object->GetFullName() << '\n';
             }
             outfile.close();
-        }
-        else if (msg == L"uwu")
-        {
-            auto Spade = UObject::FindObject<AActor>("Apollo_Farm_Shovel_Spade_01_C Artemis_POI_Cattus_b7cecd75.Artemis_POI_Cattus.PersistentLevel.Apollo_Farm_Shovel_Spade_01_C_7");
-            PlayerController->Pawn->K2_TeleportTo(UKismetMathLibrary::Add_VectorVector(Spade->K2_GetActorLocation(), {0, 0, 10000 }), {});
         }
         else if (msg == L"test")
         {
@@ -138,12 +133,20 @@ namespace Player
         }
     }
 
+    void ServerCraftSchematic(AFortPlayerController* Controller, FString& ItemId, int32 PostCraftSlot, int32 CraftAmount, EFortItemTier RequestedTier, bool bIsQuickCrafted)
+    {
+        auto Item = Controller->GetAccountItem(ItemId);
+        auto SchematicDef = (UFortSchematicItemDefinition*)Item->ItemDefinition;
+        auto ItemDef = SchematicDef->GetResultWorldItemDefinition();
+        Inventory::GiveItem(Controller, ItemDef, SchematicDef->GetQuantityProduced(), Item->Level);
+    }
+
     void Init()
     {
-        Hook::VTable<AFortPlayerControllerPvE>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
-        Hook::VTable<AFortPlayerControllerAthena>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
-        Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
-        Hook::VTable<AFortPlayerControllerAthena>(10800 / 8, ServerTeleportToPlaygroundIslandDock);
+        Hook::AllVTables<AFortPlayerControllerZone>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
+        Hook::AllVTables<AFortPlayerController>(3880 / 8, ServerCheatHook);
+        Hook::AllVTables<AFortPlayerController>(4504 / 8, ServerCraftSchematic);
+        Hook::VTable<AFortPlayerControllerAthena>(10800 / 8, ServerTeleportToPlaygroundIslandDock); // This is not ServerTeleportToPlaygroundIslandDock i don't know why i named it that lol
         Hook::VTable<AFortPlayerControllerAthena>(1920 / 8, GetPlayerViewPoint);
         Hook::VTable<AFortPlayerPawnAthena>(4616 / 8, SafezoneCheckThing);
         Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);
