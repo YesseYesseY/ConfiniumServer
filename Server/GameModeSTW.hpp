@@ -53,11 +53,30 @@ namespace GameModeSTW
 
             Utils::GetSoftPtr(AssetManager->GameDataCommon->WoodItemDefinition),
             Utils::GetSoftPtr(AssetManager->GameDataCommon->StoneItemDefinition),
-            Utils::GetSoftPtr(AssetManager->GameDataCommon->MetalItemDefinition)
+            Utils::GetSoftPtr(AssetManager->GameDataCommon->MetalItemDefinition),
         };
+
+        static bool AddedIngredients = false;
+        if (!AddedIngredients)
+        {
+            AddedIngredients = true;
+
+            for (int i = 0; i < UObject::GObjects->Num(); i++)
+            {
+                auto Object = UObject::GObjects->GetByIndex(i);
+                if (!Object || Object->IsDefaultObject()) continue;
+
+                if (Object->IsA(UFortIngredientItemDefinition::StaticClass()))
+                    StartingItems.push_back((UFortItemDefinition*)Object);
+            }
+        }
 
         for (auto Item : StartingItems)
             Inventory::GiveItem(Controller, (UFortWorldItemDefinition*)Item);
+
+        // static auto PVID = UObject::FindObject<UFortPersonalVehicleItemDefinition>("FortPersonalVehicleItemDefinition VID_Hoverboard.VID_Hoverboard");
+        // Abilities::GiveAbility(PlayerState->AbilitySystemComponent, Utils::GetSoftPtr(PVID->PersonalVehicleAbility));
+
     }
 
     void Init()

@@ -110,7 +110,7 @@ namespace Inventory
         }
     }
 
-    int GiveItem(AFortPlayerController* PlayerController, UFortWorldItemDefinition* ItemDef, int32 Count = -1)
+    int GiveItem(AFortPlayerController* PlayerController, UFortWorldItemDefinition* ItemDef, int32 Count = -1, int32 Level = 1)
     {
         if (Count == 0 || !ItemDef)
             return -1;
@@ -118,7 +118,7 @@ namespace Inventory
         if (Count == -1)
             Count = UFortScalableFloatUtils::GetValueAsInteger(ItemDef->MaxStackSize, 0);
 
-        auto Item = (UFortWorldItem*)ItemDef->CreateTemporaryItemInstanceBP(Count, 1);
+        auto Item = (UFortWorldItem*)ItemDef->CreateTemporaryItemInstanceBP(Count, Level);
 
         if (ItemDef->IsA(UFortWeaponRangedItemDefinition::StaticClass()))
         {

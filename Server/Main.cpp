@@ -69,6 +69,8 @@ DWORD MainThread(HMODULE Module)
             // L"open Artemis_Terrain"
             // L"open Zone_Onboarding_FarmsteadFort"
             L"open Zone_Onboarding_Suburban_a"
+            // L"open Zone_Onboarding_Forest_a"
+            // L"open Zone_Arid_ThunderRoute99_02_B"
             , nullptr);
 
     return 0;

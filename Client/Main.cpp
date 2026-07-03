@@ -10,7 +10,7 @@ bool UWorldExecHook(__int64 a1, __int64 a2, const wchar_t* cmd, __int64 a4)
     if (wcscmp(cmd, L"givemecheats") == 0)
     {
         auto PlayerController = Utils::GetLocalPlayerController();
-        PlayerController->CheatManager = Utils::SpawnObject<UFortCheatManager>(PlayerController);
+        PlayerController->CheatManager = Utils::SpawnObject<UCheatManager>(PlayerController);
         return true;
     }
 
