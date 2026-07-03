@@ -7,7 +7,7 @@ namespace Building
         return SupportSystem->CanAddBuildingActorClassToGrid(UWorld::GetWorld(), BuildClass, Location, Rotation, bMirrored, &Existing, &thing, false) == EFortStructuralGridQueryResults::CanAdd;
     }
 
-    ABuildingSMActor* CreateBuildingActor(UClass* BuildClass, FVector Location, FRotator Rotation, bool bMirrored, AFortPlayerControllerAthena* PlayerController)
+    ABuildingSMActor* CreateBuildingActor(UClass* BuildClass, FVector Location, FRotator Rotation, bool bMirrored, AFortPlayerController* PlayerController)
     {
         ABuildingSMActor* Build = nullptr;
         TArray<ABuildingActor*> Existing;
@@ -25,9 +25,9 @@ namespace Building
         return Build;
     }
 
-    void ServerCreateBuildingActor(AFortPlayerControllerAthena* PlayerController, const FCreateBuildingActorData& CreateBuildingData)
+    void ServerCreateBuildingActor(AFortPlayerController* PlayerController, FCreateBuildingActorData& CreateBuildingData)
     {
-        static auto GameState = (AFortGameStateBR*)UWorld::GetWorld()->AuthorityGameMode->GameState;
+        static auto GameState = (AFortGameStateZone*)UWorld::GetWorld()->AuthorityGameMode->GameState;
         auto BuildClass = GameState->AllPlayerBuildableClasses[CreateBuildingData.BuildingClassHandle];
         if (BuildClass)
         {
@@ -35,9 +35,9 @@ namespace Building
         }
     }
 
-    void ServerBeginEditingBuildingActor(AFortPlayerControllerAthena* PlayerController, ABuildingSMActor* BuildingActorToEdit)
+    void ServerBeginEditingBuildingActor(AFortPlayerController* PlayerController, ABuildingSMActor* BuildingActorToEdit)
     {
-        BuildingActorToEdit->EditingPlayer = (AFortPlayerStateAthena*)PlayerController->PlayerState;
+        BuildingActorToEdit->EditingPlayer = (AFortPlayerStateZone*)PlayerController->PlayerState;
         BuildingActorToEdit->OnRep_EditingPlayer();
 
         static auto EditToolItem = Utils::GetSoftPtr(Utils::GetAssetManager()->GameDataCommon->EditToolItem);
@@ -45,14 +45,14 @@ namespace Building
         {
             if (Entry.ItemDefinition = EditToolItem)
             {
-                auto Pawn = (AFortPlayerPawnAthena*)PlayerController->Pawn;
+                auto Pawn = (AFortPlayerPawn*)PlayerController->Pawn;
                 Pawn->EquipWeaponDefinition(EditToolItem, Entry.ItemGuid, {}, false);
                 break;
             }
         }
     }
 
-    void ServerEndEditingBuildingActor(AFortPlayerControllerAthena* PlayerController, ABuildingSMActor* BuildingActorToStopEditing)
+    void ServerEndEditingBuildingActor(AFortPlayerController* PlayerController, ABuildingSMActor* BuildingActorToStopEditing)
     {
         BuildingActorToStopEditing->EditingPlayer = nullptr;
         BuildingActorToStopEditing->OnRep_EditingPlayer();
@@ -66,7 +66,7 @@ namespace Building
         ReplaceBuildingActor(BuildingActorToEdit, EBuildingReplacementType::BRT_Edited, NewBuildingClass, 0, RotationIterations, bMirrored, PlayerController);
     }
 
-    void ServerRepairBuildingActor(AFortPlayerControllerAthena* PlayerController, ABuildingSMActor* BuildingActorToRepair)
+    void ServerRepairBuildingActor(AFortPlayerController* PlayerController, ABuildingSMActor* BuildingActorToRepair)
     {
         auto Cost = UKismetMathLibrary::FFloor(UKismetMathLibrary::Lerp(7, 0, BuildingActorToRepair->GetHealthPercent()));
         BuildingActorToRepair->RepairBuilding(PlayerController, Cost);
@@ -133,11 +133,11 @@ namespace Building
 
     void Init()
     {
-        Hook::VTable<AFortPlayerControllerAthena>(4704 / 8, ServerCreateBuildingActor);
-        Hook::VTable<AFortPlayerControllerAthena>(4760 / 8, ServerBeginEditingBuildingActor);
-        Hook::VTable<AFortPlayerControllerAthena>(4744 / 8, ServerEndEditingBuildingActor);
-        Hook::VTable<AFortPlayerControllerAthena>(4720 / 8, ServerEditBuildingActor);
-        Hook::VTable<AFortPlayerControllerAthena>(4672 / 8, ServerRepairBuildingActor);
+        Hook::AllVTables<AFortPlayerController>(4704 / 8, ServerCreateBuildingActor);
+        Hook::AllVTables<AFortPlayerController>(4760 / 8, ServerBeginEditingBuildingActor);
+        Hook::AllVTables<AFortPlayerController>(4744 / 8, ServerEndEditingBuildingActor);
+        Hook::AllVTables<AFortPlayerController>(4720 / 8, ServerEditBuildingActor);
+        Hook::AllVTables<AFortPlayerController>(4672 / 8, ServerRepairBuildingActor);
 
         // 2952 is not null it calls 2984 and that one is null
         Hook::AllVTables<AFortDecoTool>(2952 / 8, ServerSpawnDeco);

@@ -10,6 +10,12 @@ namespace Abilities
         NativeFunc(Component, &spec.Handle, spec);
     }
 
+    void GiveAbilitySet(UAbilitySystemComponent* Component, UFortAbilitySet* AbilitySet)
+    {
+        for (int i = 0; i < AbilitySet->GameplayAbilities.Num(); i++)
+            GiveAbility(Component, AbilitySet->GameplayAbilities[i]);
+    }
+
     void InternalServerTryActivateAbility(UAbilitySystemComponent* Component, FGameplayAbilitySpecHandle Handle, bool InputPressed, FPredictionKey& PredictionKey, FGameplayEventData* TriggerEventData)
     {
         static FGameplayAbilitySpec* (*FindAbilitySpecFromHandle)(UAbilitySystemComponent* Component, FGameplayAbilitySpecHandle Handle) = decltype(FindAbilitySpecFromHandle)(Utils::Offset(0x1494C78));

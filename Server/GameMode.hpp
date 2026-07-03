@@ -1,7 +1,6 @@
-namespace Gamemode
+namespace GameMode
 {
     bool ServerStarted = false;
-    bool (*ReadyToStartMatchOriginal)(AFortGameModeAthena* GameMode);
     bool ReadyToStartMatchHook(AFortGameModeAthena* GameMode)
     {
         auto GameState = (AFortGameStateAthena*)GameMode->GameState;
@@ -10,11 +9,6 @@ namespace Gamemode
         {
             ServerStarted = true;
 
-            bool (*InitHost)(AOnlineBeaconHost*) = decltype(InitHost)(Utils::Offset(0x51E94E4));
-            bool (*PauseBeaconRequests)(AOnlineBeaconHost*, bool) = decltype(PauseBeaconRequests)(Utils::Offset(0x679CA38));
-            bool (*InitListen)(UNetDriver*, void*, FURL&, bool, FString&) = decltype(InitListen)(Utils::Offset(0x51E98A0));
-            void (*SetWorld)(UNetDriver*, UWorld*) = decltype(SetWorld)(Utils::Offset(0xC2BB9C));
-    
             auto Playlist = UObject::FindObject<UFortPlaylistAthena>(
                     "FortPlaylistAthena Playlist_DefaultSolo.Playlist_DefaultSolo"
                     // "FortPlaylistAthena Playlist_BattleLab.Playlist_BattleLab"
@@ -30,25 +24,7 @@ namespace Gamemode
             GameState->WarmupCountdownEndTime = INT32_MAX;
             GameState->WarmupCountdownStartTime = 0;
 
-            auto Beacon = Utils::SpawnActor<AFortOnlineBeaconHost>();
-            Beacon->ListenPort = 7777;
-            InitHost(Beacon);
-            PauseBeaconRequests(Beacon, false);
-
-            auto World = UWorld::GetWorld();
-            auto NetDriver = Beacon->NetDriver;
-            NetDriver->World = World;
-            World->NetDriver = NetDriver;
-            NetDriver->NetDriverName = UKismetStringLibrary::Conv_StringToName(L"GameNetDriver");
-
-            FString error;
-            FURL url = {};
-            url.Port = 7776;
-            InitListen(NetDriver, World, url, false, error);
-
-            SetWorld(NetDriver, World);
-            World->LevelCollections[0].NetDriver = NetDriver;
-            World->LevelCollections[1].NetDriver = NetDriver;
+            Net::Listen();
 
             GameMode->bWorldIsReady = true;
         }
@@ -153,7 +129,7 @@ namespace Gamemode
 
     void Init()
     {
-        Hook::VTable<AFortGameModeAthena>(2192 / 8, ReadyToStartMatchHook, &ReadyToStartMatchOriginal);
+        Hook::VTable<AFortGameModeAthena>(2192 / 8, ReadyToStartMatchHook);
         Hook::VTable<AFortGameModeAthena>(1720 / 8, SpawnDefaultPawnForHook);
         Hook::VTable<AFortGameModeAthena>(1768 / 8, HandleStartingNewPlayerHook, &HandleStartingNewPlayerOriginal);
 

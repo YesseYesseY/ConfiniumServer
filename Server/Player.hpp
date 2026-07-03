@@ -140,6 +140,7 @@ namespace Player
 
     void Init()
     {
+        Hook::VTable<AFortPlayerControllerPvE>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
         Hook::VTable<AFortPlayerControllerAthena>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
         Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
         Hook::VTable<AFortPlayerControllerAthena>(10800 / 8, ServerTeleportToPlaygroundIslandDock);

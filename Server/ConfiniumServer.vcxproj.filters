@@ -57,6 +57,6 @@
     <ClCompile Include="..\minhook\src\trampoline.c">
       <Filter>..\minhook\src</Filter>
     </ClCompile>
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Main.cpp" />
   </ItemGroup>
 </Project>

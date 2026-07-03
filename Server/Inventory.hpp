@@ -13,7 +13,7 @@ namespace Inventory
         }
     }
 
-    FFortItemEntry* FindItemEntry(AFortPlayerControllerAthena* PlayerController, const FGuid& ItemGuid, int* Index = nullptr)
+    FFortItemEntry* FindItemEntry(AFortPlayerController* PlayerController, const FGuid& ItemGuid, int* Index = nullptr)
     {
         for (int i = 0; i < PlayerController->WorldInventory->Inventory.ReplicatedEntries.Num(); i++)
         {
@@ -29,7 +29,7 @@ namespace Inventory
         return nullptr;
     }
 
-    FFortItemEntry* FindItemEntry(AFortPlayerControllerAthena* PlayerController, UFortWorldItemDefinition* ItemDef, int* Index = nullptr)
+    FFortItemEntry* FindItemEntry(AFortPlayerController* PlayerController, UFortWorldItemDefinition* ItemDef, int* Index = nullptr)
     {
         for (int i = 0; i < PlayerController->WorldInventory->Inventory.ReplicatedEntries.Num(); i++)
         {
@@ -46,12 +46,12 @@ namespace Inventory
         return nullptr;
     }
 
-    int32 GetIndexOfItemEntry(AFortPlayerControllerAthena* PlayerController, FFortItemEntry* ItemEntry)
+    int32 GetIndexOfItemEntry(AFortPlayerController* PlayerController, FFortItemEntry* ItemEntry)
     {
         return ((uintptr_t)ItemEntry - (uintptr_t)PlayerController->WorldInventory->Inventory.ReplicatedEntries.GetDataPtr()) / sizeof(FFortItemEntry);
     }
 
-    void EquipItemEntry(AFortPlayerControllerAthena* PlayerController, FFortItemEntry* ItemEntry)
+    void EquipItemEntry(AFortPlayerController* PlayerController, FFortItemEntry* ItemEntry)
     {
         if (PlayerController->IsInAircraft())
             return;
@@ -64,7 +64,7 @@ namespace Inventory
         }
     }
 
-    void RemoveItem(AFortPlayerControllerAthena* PlayerController, FFortItemEntry* ItemEntry, int32 Count)
+    void RemoveItem(AFortPlayerController* PlayerController, FFortItemEntry* ItemEntry, int32 Count)
     {
         auto Index = GetIndexOfItemEntry(PlayerController, ItemEntry);
         if (Count >= ItemEntry->Count)
@@ -80,7 +80,7 @@ namespace Inventory
         }
     }
 
-    void RemoveItem(AFortPlayerControllerAthena* PlayerController, UFortWorldItemDefinition* ItemDef, int32 Count)
+    void RemoveItem(AFortPlayerController* PlayerController, UFortWorldItemDefinition* ItemDef, int32 Count)
     {
         while (Count > 0)
         {
@@ -135,7 +135,7 @@ namespace Inventory
         return PlayerController->WorldInventory->Inventory.ItemInstances.Num() - 1;
     }
 
-    void ServerExecuteInventoryItem(AFortPlayerControllerAthena* PlayerController, const FGuid& ItemGuid)
+    void ServerExecuteInventoryItem(AFortPlayerController* PlayerController, const FGuid& ItemGuid)
     {
         if (auto ItemEntry = FindItemEntry(PlayerController, ItemGuid))
         {
@@ -210,7 +210,7 @@ namespace Inventory
     void Init()
     {
         Hook::Function(Utils::Offset(0x694108C), Inventory::RemoveInventoryItem);
-        Hook::VTable<AFortPlayerControllerAthena>(4440 / 8, Inventory::ServerExecuteInventoryItem);
+        Hook::AllVTables<AFortPlayerController>(4440 / 8, Inventory::ServerExecuteInventoryItem);
         Hook::VTable<AFortPlayerControllerAthena>(4552 / 8, Inventory::ServerAttemptInventoryDrop);
         Hook::UFunc("Function FortniteGame.FortKismetLibrary.GiveItemToInventoryOwner", GiveItemToInventoryOwner);
     }
