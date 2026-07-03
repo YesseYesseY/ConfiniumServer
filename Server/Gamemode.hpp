@@ -80,40 +80,55 @@ namespace Gamemode
 
     APawn* SpawnDefaultPawnForHook(AFortGameModeAthena* GameMode, AFortPlayerControllerAthena* PlayerController, AActor* StartSpot)
     {
-        auto PlayerState = (AFortPlayerStateAthena*)PlayerController->PlayerState;
-        PlayerState->AbilitySystemComponent->RemoveActiveGameplayEffectBySourceEffect(UGE_OutsideSafeZoneDamage_C::StaticClass(), nullptr, 1);
+        static void (*ApplyCharacterCustomization)(AFortPlayerStateAthena*, AFortPlayerPawnAthena*) = decltype(ApplyCharacterCustomization)(Utils::Offset(0x6979050));
 
+        auto PlayerState = (AFortPlayerStateAthena*)PlayerController->PlayerState;
+        auto Pawn = (AFortPlayerPawnAthena*)GameMode->SpawnDefaultPawnAtTransform(PlayerController, StartSpot->GetTransform());
+
+        ApplyCharacterCustomization(PlayerState, Pawn);
+
+        return Pawn;
+    }
+
+    void (*HandleStartingNewPlayerOriginal)(AFortGameModeAthena* GameMode, AFortPlayerController* Controller);
+    void HandleStartingNewPlayerHook(AFortGameModeAthena* GameMode, AFortPlayerController* Controller)
+    {
+        HandleStartingNewPlayerOriginal(GameMode, Controller);
+
+        auto PlayerState = (AFortPlayerStateAthena*)Controller->PlayerState;
         auto AssetManager = Utils::GetAssetManager();
 
-        auto GAS_AthenaPlayer = Utils::GetSoftPtr(AssetManager->GameDataBR->PlayerAbilitySetBR);
+        static std::vector<UFortWorldItemDefinition*> StartingItems = {
+            Utils::GetSoftPtr(AssetManager->GameDataCommon->EditToolItem),
+            (UFortWorldItemDefinition*)GameMode->StartingItems[0].Item,
+            (UFortWorldItemDefinition*)GameMode->StartingItems[1].Item,
+            (UFortWorldItemDefinition*)GameMode->StartingItems[2].Item,
+            (UFortWorldItemDefinition*)GameMode->StartingItems[3].Item,
+            (UFortWorldItemDefinition*)GameMode->StartingItems[4].Item,
+            Utils::GetSoftPtr(AssetManager->GameDataCosmetics->FallbackPickaxe)->WeaponDefinition,
+
+            // Above = Real Starting Items, Below = Extra Stuff
+
+            Utils::GetSoftPtr(AssetManager->GameDataCommon->WoodItemDefinition),
+            Utils::GetSoftPtr(AssetManager->GameDataCommon->StoneItemDefinition),
+            Utils::GetSoftPtr(AssetManager->GameDataCommon->MetalItemDefinition),
+            Utils::GetSoftPtr(AssetManager->GameDataBR->DefaultGlobalCurrencyItemDefinition),
+            Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("WID_Shotgun_CoreBurst_Athena_SR"),
+            Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataShells"),
+            Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsLight"),
+            Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsMedium"),
+            Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsHeavy"),
+            Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AmmoDataRockets"),
+            Utils::FindObjectFast<UFortTrapItemDefinition>("TID_Floor_Player_Launch_Pad_Athena")
+        };
+
+        static auto GAS_AthenaPlayer = Utils::GetSoftPtr(AssetManager->GameDataBR->PlayerAbilitySetBR);
+
         for (int i = 0; i < GAS_AthenaPlayer->GameplayAbilities.Num(); i++)
             Abilities::GiveAbility(PlayerState->AbilitySystemComponent, GAS_AthenaPlayer->GameplayAbilities[i]);
 
-        Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCommon->EditToolItem));
-
-        for (int i = 0; i < 5; i++)
-            Inventory::GiveItem(PlayerController, (UFortWorldItemDefinition*)GameMode->StartingItems[i].Item, GameMode->StartingItems[i].Count);
-
-        Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCosmetics->FallbackPickaxe)->WeaponDefinition);
-        Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCommon->WoodItemDefinition));
-        Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCommon->StoneItemDefinition));
-        Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataCommon->MetalItemDefinition));
-        Inventory::GiveItem(PlayerController, Utils::GetSoftPtr(AssetManager->GameDataBR->DefaultGlobalCurrencyItemDefinition));
-        Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("WID_Shotgun_CoreBurst_Athena_SR"));
-        Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataShells"));
-        Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsLight"));
-        Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsMedium"));
-        Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AthenaAmmoDataBulletsHeavy"));
-        Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortWeaponRangedItemDefinition>("AmmoDataRockets"));
-        Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortTrapItemDefinition>("TID_Floor_Player_Launch_Pad_Athena"));
-        // Inventory::GiveItem(PlayerController, Utils::FindObjectFast<UFortContextTrapItemDefinition>("TID_Context_Reinforced_Athena"));
-        Inventory::Update(PlayerController);
-
-        static void (*ApplyCharacterCustomization)(AFortPlayerStateAthena*, AFortPlayerPawnAthena*) = decltype(ApplyCharacterCustomization)(Utils::Offset(0x6979050));
-
-        auto Pawn = (AFortPlayerPawnAthena*)GameMode->SpawnDefaultPawnAtTransform(PlayerController, StartSpot->GetTransform());
-        ApplyCharacterCustomization(PlayerState, Pawn);
-        return Pawn;
+        for (auto ItemDef : StartingItems)
+            Inventory::GiveItem(Controller, ItemDef);
     }
 
     void (*StartNewSafeZonePhaseOriginal)(AFortGameModeAthena* GameMode, int a2);
@@ -140,6 +155,7 @@ namespace Gamemode
     {
         Hook::VTable<AFortGameModeAthena>(2192 / 8, ReadyToStartMatchHook, &ReadyToStartMatchOriginal);
         Hook::VTable<AFortGameModeAthena>(1720 / 8, SpawnDefaultPawnForHook);
+        Hook::VTable<AFortGameModeAthena>(1768 / 8, HandleStartingNewPlayerHook, &HandleStartingNewPlayerOriginal);
 
         Hook::Function(InSDKUtils::GetImageBase() + 0x6109094, StartNewSafeZonePhase, &StartNewSafeZonePhaseOriginal);
 

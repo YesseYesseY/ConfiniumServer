@@ -1,6 +1,6 @@
 namespace Inventory
 {
-    void Update(AFortPlayerControllerAthena* PlayerController, FFortItemEntry* ItemEntry = nullptr)
+    void Update(AFortPlayerController* PlayerController, FFortItemEntry* ItemEntry = nullptr)
     {
         PlayerController->WorldInventory->HandleInventoryLocalUpdate();
         if (ItemEntry)
@@ -110,7 +110,7 @@ namespace Inventory
         }
     }
 
-    int GiveItem(AFortPlayerControllerAthena* PlayerController, UFortWorldItemDefinition* ItemDef, int32 Count = -1)
+    int GiveItem(AFortPlayerController* PlayerController, UFortWorldItemDefinition* ItemDef, int32 Count = -1)
     {
         if (Count == 0 || !ItemDef)
             return -1;
@@ -129,6 +129,9 @@ namespace Inventory
 
         PlayerController->WorldInventory->Inventory.ReplicatedEntries.Add(Item->ItemEntry);
         PlayerController->WorldInventory->Inventory.ItemInstances.Add(Item);
+
+        Inventory::Update(PlayerController);
+
         return PlayerController->WorldInventory->Inventory.ItemInstances.Num() - 1;
     }
 

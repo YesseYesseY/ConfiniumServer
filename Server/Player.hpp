@@ -118,11 +118,32 @@ namespace Player
         PlayerPawn->K2_TeleportTo(Portal->TeleportLocation, TeleportRotation);
     }
 
+    void GetPlayerViewPoint(APlayerController* Controller, FVector& Location, FRotator& Rotation)
+    {
+        static FName NAME_Spectating = UKismetStringLibrary::Conv_StringToName(L"Spectating");
+        if (Controller->StateName == NAME_Spectating)
+        {
+            Location = Controller->LastSpectatorSyncLocation;
+            Rotation = Controller->LastSpectatorSyncRotation;
+        }
+        else if (Controller->Pawn)
+        {
+            Location = Controller->Pawn->K2_GetActorLocation();
+            Rotation = Controller->GetControlRotation();
+        }
+        else
+        {
+            Location = Controller->K2_GetActorLocation();
+            Rotation = Controller->K2_GetActorRotation();
+        }
+    }
+
     void Init()
     {
         Hook::VTable<AFortPlayerControllerAthena>(2312 / 8, Utils::GetVTable<AFortPlayerController>()[2312 / 8]); // ServerAcknowledgePossession
         Hook::VTable<AFortPlayerControllerAthena>(3880 / 8, ServerCheatHook);
         Hook::VTable<AFortPlayerControllerAthena>(10800 / 8, ServerTeleportToPlaygroundIslandDock);
+        Hook::VTable<AFortPlayerControllerAthena>(1920 / 8, GetPlayerViewPoint);
         Hook::VTable<AFortPlayerPawnAthena>(4616 / 8, SafezoneCheckThing);
         Hook::VTable<UFortControllerComponent_Aircraft>(1256 / 8, ServerAttemptAircraftJumpHook);
         Hook::UFunc("Function FortniteGame.FortMissionLibrary.TeleportPlayerPawn", TeleportPlayerPawn);
