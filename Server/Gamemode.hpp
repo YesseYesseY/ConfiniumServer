@@ -16,8 +16,8 @@ namespace Gamemode
             void (*SetWorld)(UNetDriver*, UWorld*) = decltype(SetWorld)(Utils::Offset(0xC2BB9C));
     
             auto Playlist = UObject::FindObject<UFortPlaylistAthena>(
-                    // "FortPlaylistAthena Playlist_DefaultSolo.Playlist_DefaultSolo"
-                    "FortPlaylistAthena Playlist_BattleLab.Playlist_BattleLab"
+                    "FortPlaylistAthena Playlist_DefaultSolo.Playlist_DefaultSolo"
+                    // "FortPlaylistAthena Playlist_BattleLab.Playlist_BattleLab"
                     );
             GameState->CurrentPlaylistInfo.BasePlaylist = Playlist;
             GameState->CurrentPlaylistInfo.OverridePlaylist = Playlist;

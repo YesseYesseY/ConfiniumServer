@@ -2,6 +2,7 @@
 #include <iostream>
 #include <print>
 #include <fstream>
+#include <algorithm>
 
 #include <Utils.hpp>
 #include <Hook.hpp>

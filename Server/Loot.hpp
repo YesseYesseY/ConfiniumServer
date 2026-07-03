@@ -111,6 +111,40 @@ namespace Loot
         }
     }
 
+    void PickLootDrops_AddToOut(TArray<FFortItemEntry>& OutLootToDrop, UFortItemDefinition* ItemDef, int32 Count)
+    {
+        auto MaxStackSize = UFortScalableFloatUtils::GetValueAsInteger(ItemDef->MaxStackSize, 0.0f);
+
+        for (auto& Entry : OutLootToDrop)
+        {
+            if (Count <= 0)
+                break;
+
+            if (Entry.ItemDefinition != ItemDef)
+                continue;
+
+            if (Entry.Count >= MaxStackSize)
+                continue;
+
+            auto ToAdd = min(MaxStackSize - Entry.Count, Count);
+            Entry.Count += ToAdd;
+            Count -= ToAdd;
+        }
+
+        while (Count > 0)
+        {
+            auto ToDrop = min(MaxStackSize, Count);
+            OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(ItemDef, ToDrop, 0));
+            Count -= ToDrop;
+        }
+    }
+
+    void PickLootDrops_AddToOut(TArray<FFortItemEntry>& OutLootToDrop, LPData& Data)
+    {
+        PickLootDrops_AddToOut(OutLootToDrop, Data.ItemDefinition, Data.Count);
+    }
+
+
     void PickLootDrops(TArray<FFortItemEntry>& OutLootToDrop, FName TierGroupName, int32 ForcedLootTier)
     {
         auto GameMode = (AFortGameModeAthena*)UWorld::GetWorld()->AuthorityGameMode;
@@ -143,7 +177,7 @@ namespace Loot
                 if (toadd.Count <= 0)
                     continue;
 
-                OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(toadd.ItemDefinition, toadd.Count, 0));
+                PickLootDrops_AddToOut(OutLootToDrop, toadd);
             }
         }
         else
@@ -169,7 +203,7 @@ namespace Loot
                     if (toadd.Count <= 0)
                         continue;
                     auto ItemDef = toadd.ItemDefinition;
-                    OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(ItemDef, toadd.Count, 0));
+                    PickLootDrops_AddToOut(OutLootToDrop, toadd);
 
                     static auto FWPSAD = UObject::FindObject<UFortWeaponPickupSpawnAmmoData>("FortWeaponPickupSpawnAmmoData FortWeaponPickupSpawnAmmoData.FortWeaponPickupSpawnAmmoData");
 
@@ -190,15 +224,13 @@ namespace Loot
                     {
                         if (UBlueprintGameplayTagLibrary::HasTag(AmmoTags, WPACD.AmmoItemDefinitionTag, true))
                         {
-                            OutLootToDrop.Add(UFortKismetLibrary::CreateItemEntry(AmmoData, UFortScalableFloatUtils::GetValueAtLevel(WPACD.SpawnCount, 0.0f), 0));
+                            PickLootDrops_AddToOut(OutLootToDrop, AmmoData, UFortScalableFloatUtils::GetValueAtLevel(WPACD.SpawnCount, 0.0f));
                             break;
                         }
                     }
                 }
             }
         }
-
-
     }
 
     void PickLootDropsHook(UObject* Obj, FFrame* Stack, bool* Ret)
@@ -222,7 +254,7 @@ namespace Loot
 
         PickLootDrops(OutLootToDrop, TierGroupName, ForcedLootTier);
 
-        *Ret = true;
+        *Ret = true; // According to AthenaFunctionLibrary_C::SpawnLootFromTable when PickLootDrops returns false it prints NoLootPackageFound.
     }
 
     void K2_SpawnPickupInWorld(UObject* Obj, FFrame* Stack, AFortPickup** Ret)
@@ -272,16 +304,21 @@ namespace Loot
     {
         TArray<FFortItemEntry> Loot;
         PickLootDrops(Loot, Container->SearchLootTierGroup, -1);
-        auto Position = UKismetMathLibrary::TransformLocation(Container->GetTransform(), Container->LootSpawnLocation_Athena);
-        int32 NumSteps = round(Container->LootTossConeHalfAngle_Athena / 18.0f);
+        auto Position = UKismetMathLibrary::TransformLocation(Container->GetTransform(), Container->LootSpawnLocation_Athena + Container->LootSpawnLocation);
+        auto a2 = Container->LootTossConeHalfAngle_Athena;
+        int32 NumSteps = floor(Container->LootTossConeHalfAngle_Athena / 18.0f);
         for (auto& Entry : Loot)
         {
             auto Pickup = Utils::SpawnActor<AFortPickupAthena>(Position);
             Pickup->PrimaryPickupItemEntry = Entry;
             Pickup->OnRep_PrimaryPickupItemEntry();
-            UFortKismetLibrary::TossPickupFromContainer(Container, Container, Pickup, NumSteps, UKismetMathLibrary::RandomInteger(NumSteps), Container->LootTossConeHalfAngle_Athena, Container->LootTossDirection_Athena, Container->LootTossSpeed_Athena, false);
+            int32 Step = UKismetMathLibrary::RandomInteger(NumSteps);
+            UFortKismetLibrary::TossPickupFromContainer(Container, Container, Pickup, NumSteps, Step, Container->LootTossConeHalfAngle_Athena, Container->LootTossDirection_Athena, Container->LootTossSpeed_Athena, Container->bForceHidePickupMinimapIndicator);
         }
         Loot.Free();
+
+        Container->bAlreadySearched = true;
+        Container->OnRep_bAlreadySearched();
 
         return true;
     }
@@ -331,7 +368,28 @@ namespace Loot
         auto Containers = Utils::GetAllActorsOfClass<ABuildingContainer>();
         for (auto Container : Containers)
         {
-            if (Container->IsA(FloorLoot1) || Container->IsA(FloorLoot2))
+            for (int i = 0; i < Container->PotentialRandomUpgrades.Num(); i++)
+            {
+                auto& Upgrade = Container->PotentialRandomUpgrades[i];
+                if (!UFortScalableFloatUtils::GetValueAsBool(Upgrade.Enabled, 0.0f))
+                    continue;
+
+                auto SpawnChance = UFortScalableFloatUtils::GetValueAtLevel(Upgrade.ChanceToApplyPerContainer, 0.0f);
+                if (!UKismetMathLibrary::RandomBoolWithWeight(SpawnChance / 100.0f))
+                    continue;
+
+                Container->ChosenRandomUpgrade = i;
+                Container->OnRep_ChosenRandomUpgrade();
+
+                Container->ReplicatedLootTier = i + 2;
+                Container->OnRep_LootTier();
+
+                Container->SearchLootTierGroup = Upgrade.LootTierGroupIfApplied;
+
+                break;
+            }
+
+            if (Container->bStartAlreadySearched_Athena)
                 ContainerSpawnLoot(Container);
         }
     }

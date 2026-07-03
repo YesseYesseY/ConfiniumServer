@@ -28,7 +28,6 @@ namespace Abilities
             return;
         }
 
-        
         if (AbilityToActivate->NetSecurityPolicy == EGameplayAbilityNetSecurityPolicy::ServerOnlyExecution ||
             AbilityToActivate->NetSecurityPolicy == EGameplayAbilityNetSecurityPolicy::ServerOnly)
         {
@@ -37,7 +36,7 @@ namespace Abilities
         }
 
         // TODO? ConsumeAllReplicatedData
-        
+
         UGameplayAbility* InstancedAbility = nullptr;
         Spec->InputPressed = true;
 
