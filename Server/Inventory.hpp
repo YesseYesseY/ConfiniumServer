@@ -207,11 +207,27 @@ namespace Inventory
         }
     }
 
+    void (*GivePickupToPlayerOriginal)(AFortPickup* Pickup, int64 IOI, bool a3);
+    void GivePickupToPlayer(AFortPickup* Pickup, int64 IOI, bool a3)
+    {
+        auto Controller = (AFortPlayerController*)(IOI - 1808);
+
+        auto& Entry = Pickup->PrimaryPickupItemEntry;
+        Inventory::GiveItem(Controller, (UFortWorldItemDefinition*)Entry.ItemDefinition, Entry.Count, Entry.Level);
+
+        GivePickupToPlayerOriginal(Pickup, IOI, a3);
+    }
+
     void Init()
     {
         Hook::Function(Utils::Offset(0x694108C), Inventory::RemoveInventoryItem);
+
         Hook::AllVTables<AFortPlayerController>(4440 / 8, Inventory::ServerExecuteInventoryItem);
+
         Hook::VTable<AFortPlayerControllerAthena>(4552 / 8, Inventory::ServerAttemptInventoryDrop);
+        Hook::VTable<AFortPickup>(1736 / 8, GivePickupToPlayer, &GivePickupToPlayerOriginal);
+        Hook::VTable<AFortPickupAthena>(1736 / 8, GivePickupToPlayer, &GivePickupToPlayerOriginal);
+
         Hook::UFunc("Function FortniteGame.FortKismetLibrary.GiveItemToInventoryOwner", GiveItemToInventoryOwner);
     }
 }

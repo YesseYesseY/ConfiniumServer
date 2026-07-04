@@ -91,7 +91,7 @@ namespace Utils
     {
         T* ret = nullptr;
 
-        if (SoftPtr.WeakPtr.ObjectIndex)
+        if (SoftPtr.WeakPtr.ObjectIndex > 0)
         {
             ret = SoftPtr.Get();
         }
@@ -177,6 +177,39 @@ namespace Utils
             return false;
 
         return UKismetMathLibrary::RandomFloatInRange(0.0f, 100.0f) <= Chance;
+    }
+
+    std::string GetName(UObject* Obj)
+    {
+        return Obj ? Obj->Name.GetRawString() : "None";
+    }
+
+    std::string GetFullName(UObject* Obj)
+    {
+        if (Obj && Obj->Class)
+        {
+            std::string Temp;
+
+            for (UObject* NextOuter = Obj->Outer; NextOuter; NextOuter = NextOuter->Outer)
+            {
+                Temp = GetName(NextOuter) + "." + Temp;
+            }
+
+            std::string Name = GetName(Obj->Class);
+            Name += " ";
+            Name += Temp;
+            Name += GetName(Obj);
+
+            return Name;
+        }
+
+        return "None";
+    }
+
+    UClass* GetPickupClass()
+    {
+        static UClass* Ret = UFortKismetLibrary::GetSubGame(UWorld::GetWorld()) == ESubGame::Athena ? AFortPickupAthena::StaticClass() : AFortPickup::StaticClass();
+        return Ret;
     }
 }
 

@@ -61,6 +61,11 @@ namespace Hook
     }
 }
 
+bool ReturnTrueHook()
+{
+    return true;
+}
+
 struct FOutputDevice
 {
     void** VTable;

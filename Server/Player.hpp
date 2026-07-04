@@ -31,14 +31,17 @@ namespace Player
         else if (msg == L"dumpobjects")
         {
             std::ofstream outfile("objects.txt");
+            std::ofstream outfile2("unrealobjects.txt");
             for (int i = 0; i < UObject::GObjects->Num(); i++)
             {
                 auto Object = UObject::GObjects->GetByIndex(i);
                 if (!Object) continue;
     
                 outfile << Object->GetFullName() << '\n';
+                outfile2 << Utils::GetFullName(Object) << '\n';
             }
             outfile.close();
+            outfile2.close();
         }
         else if (msg == L"test")
         {
@@ -138,7 +141,18 @@ namespace Player
         auto Item = Controller->GetAccountItem(ItemId);
         auto SchematicDef = (UFortSchematicItemDefinition*)Item->ItemDefinition;
         auto ItemDef = SchematicDef->GetResultWorldItemDefinition();
-        Inventory::GiveItem(Controller, ItemDef, SchematicDef->GetQuantityProduced(), Item->Level);
+
+        auto Pawn = (AFortPawn*)Controller->Pawn;
+
+        if (!Pawn)
+            return;
+
+        auto Pickup = Utils::SpawnActorClass<AFortPickup>(Utils::GetPickupClass(), Pawn->K2_GetActorLocation());
+        Pickup->PrimaryPickupItemEntry.ItemDefinition = ItemDef;
+        Pickup->PrimaryPickupItemEntry.Count = SchematicDef->GetQuantityProduced() * CraftAmount;
+        Pickup->PrimaryPickupItemEntry.Level = Item->Level;
+        Pickup->OnRep_PrimaryPickupItemEntry();
+        Pickup->BlueprintSetPickupTarget(Pawn, true);
     }
 
     void Init()
